@@ -32,16 +32,57 @@ export interface RuntimeRunRecord {
   finished_at: string | null;
 }
 
+export interface RuntimeFieldRecord {
+  field_id: string;
+  label: string;
+  normalized_value: string;
+  observed_value?: string;
+  human_approved_value?: string | null;
+  status?: string;
+  confidence?: number;
+  warning_codes?: string[];
+}
+
+export interface RuntimeReviewTaskRecord {
+  review_task_id: string;
+  reason_codes: string[];
+  status: string;
+  priority?: string;
+  required_action?: string;
+}
+
+export interface RuntimeRevisionRecord {
+  revision_id: string;
+  run_id: string;
+  document_id: string;
+  field_id: string | null;
+  source: string;
+  author_type: string;
+  created_at: string;
+  summary: string;
+  before_value: string | null;
+  after_value: string | null;
+  note: string | null;
+}
+
+export interface RuntimeApprovalAuditRecord {
+  approval_id: string;
+  run_id: string;
+  review_task_id: string | null;
+  action: string;
+  actor: string;
+  created_at: string;
+  note: string | null;
+  revision_id: string | null;
+}
+
 export interface RuntimeExecutionResult {
   run: RuntimeRunRecord;
-  fields: Array<{
-    label: string;
-    normalized_value: string;
-    status?: string;
-    confidence?: number;
-  }>;
+  fields: RuntimeFieldRecord[];
   warnings: Array<{ code: string; message: string; severity: string }>;
-  review_tasks: Array<{ review_task_id: string; reason_codes: string[]; status: string }>;
+  review_tasks: RuntimeReviewTaskRecord[];
+  revisions?: RuntimeRevisionRecord[];
+  approval_audit?: RuntimeApprovalAuditRecord[];
   repair?: {
     attempts: Array<{ strategy: string; result: string; warning_code: string }>;
     remaining_warnings: Array<{ code: string; message: string; severity: string }>;
@@ -54,7 +95,10 @@ export interface DesktopGateway {
   initializeWorkspace(workspaceRoot?: string): Promise<DesktopWorkspacePaths>;
   ensureRuntime(): Promise<DesktopRuntimeStatus>;
   processFixture(fixture: SampleFixture): Promise<RuntimeExecutionResult>;
+  listReviewTasks(runId: string): Promise<Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">>;
+  applyFieldEdit(runId: string, fieldId: string, newValue: string, note?: string): Promise<RuntimeExecutionResult>;
   approveRun(runId: string): Promise<RuntimeExecutionResult>;
+  rejectRun(runId: string, note?: string): Promise<RuntimeExecutionResult>;
   exportRun(runId: string, exportTarget: "json" | "markdown" | "connector"): Promise<{ artifact_ref: string; run: RuntimeRunRecord }>;
 }
 
@@ -82,10 +126,14 @@ function buildMockResult(fixture: SampleFixture): RuntimeExecutionResult {
       started_at: new Date().toISOString(),
       finished_at: new Date().toISOString()
     },
-    fields: fixture.workspace.fields.map((field) => ({
+    fields: fixture.workspace.fields.map((field, index) => ({
+      field_id: `mock_field_${index + 1}`,
       label: field.label,
       normalized_value: field.value,
-      status: field.status
+      observed_value: field.value,
+      human_approved_value: null,
+      status: field.status,
+      warning_codes: field.status === "warning" ? ["MOCK_WARNING"] : []
     })),
     warnings: fixture.workspace.warnings.map((warning) => ({
       code: "MOCK_WARNING",
@@ -93,8 +141,18 @@ function buildMockResult(fixture: SampleFixture): RuntimeExecutionResult {
       severity: "medium"
     })),
     review_tasks: fixture.expectedReview
-      ? [{ review_task_id: `review_${fixture.fixtureId}`, reason_codes: ["APPROVAL_REQUIRED"], status: "open" }]
+      ? [
+          {
+            review_task_id: `review_${fixture.fixtureId}`,
+            reason_codes: ["APPROVAL_REQUIRED"],
+            status: "open",
+            priority: "medium",
+            required_action: "approval"
+          }
+        ]
       : [],
+    revisions: [],
+    approval_audit: [],
     repair: {
       attempts: [],
       remaining_warnings: fixture.workspace.warnings.map((warning) => ({
@@ -148,12 +206,108 @@ function createBrowserMockGateway(): DesktopGateway {
       mockRuns.set(result.run.run_id, result);
       return result;
     },
+    async listReviewTasks(runId) {
+      const result = mockRuns.get(runId);
+      if (!result) {
+        throw new Error(`Mock run not found: ${runId}`);
+      }
+      return {
+        review_tasks: result.review_tasks,
+        revisions: result.revisions ?? [],
+        approval_audit: result.approval_audit ?? []
+      };
+    },
+    async applyFieldEdit(runId, fieldId, newValue, note) {
+      const result = mockRuns.get(runId);
+      if (!result) {
+        throw new Error(`Mock run not found: ${runId}`);
+      }
+
+      const field = result.fields.find((item) => item.field_id === fieldId);
+      if (!field) {
+        throw new Error(`Mock field not found: ${fieldId}`);
+      }
+
+      const revisionId = `revision_${Date.now()}`;
+      result.revisions = [
+        ...(result.revisions ?? []),
+        {
+          revision_id: revisionId,
+          run_id: runId,
+          document_id: result.run.document_id,
+          field_id: fieldId,
+          source: "human_edit",
+          author_type: "user",
+          created_at: new Date().toISOString(),
+          summary: `Updated ${field.label}`,
+          before_value: field.normalized_value,
+          after_value: newValue,
+          note: note ?? null
+        }
+      ];
+      result.approval_audit = [
+        ...(result.approval_audit ?? []),
+        {
+          approval_id: `approval_${Date.now()}`,
+          run_id: runId,
+          review_task_id: result.review_tasks[0]?.review_task_id ?? null,
+          action: "field_edited",
+          actor: "browser-mock-user",
+          created_at: new Date().toISOString(),
+          note: note ?? null,
+          revision_id: revisionId
+        }
+      ];
+      field.human_approved_value = newValue;
+      field.normalized_value = newValue;
+      field.status = "approved";
+      result.warnings = [];
+      result.review_tasks = result.review_tasks.map((task) => ({ ...task, status: "resolved" }));
+      mockRuns.set(runId, result);
+      return result;
+    },
     async approveRun(runId) {
       const result = mockRuns.get(runId);
       if (!result) {
         throw new Error(`Mock run not found: ${runId}`);
       }
       result.run.status = "approved";
+      result.review_tasks = result.review_tasks.map((task) => ({ ...task, status: "approved" }));
+      result.approval_audit = [
+        ...(result.approval_audit ?? []),
+        {
+          approval_id: `approval_${Date.now()}`,
+          run_id: runId,
+          review_task_id: result.review_tasks[0]?.review_task_id ?? null,
+          action: "approved",
+          actor: "browser-mock-user",
+          created_at: new Date().toISOString(),
+          note: null,
+          revision_id: null
+        }
+      ];
+      return result;
+    },
+    async rejectRun(runId, note) {
+      const result = mockRuns.get(runId);
+      if (!result) {
+        throw new Error(`Mock run not found: ${runId}`);
+      }
+      result.run.status = "failed";
+      result.review_tasks = result.review_tasks.map((task) => ({ ...task, status: "rejected" }));
+      result.approval_audit = [
+        ...(result.approval_audit ?? []),
+        {
+          approval_id: `approval_${Date.now()}`,
+          run_id: runId,
+          review_task_id: result.review_tasks[0]?.review_task_id ?? null,
+          action: "rejected",
+          actor: "browser-mock-user",
+          created_at: new Date().toISOString(),
+          note: note ?? null,
+          revision_id: null
+        }
+      ];
       return result;
     },
     async exportRun(runId, exportTarget) {
@@ -201,9 +355,28 @@ function createTauriGateway(): DesktopGateway {
 
       return executed.payload;
     },
+    async listReviewTasks(runId) {
+      const response = await invokeTauri<{
+        payload: Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">;
+      }>("list_review_tasks", { runId });
+      return response.payload;
+    },
+    async applyFieldEdit(runId, fieldId, newValue, note) {
+      const response = await invokeTauri<{ payload: RuntimeExecutionResult }>("apply_field_edit", {
+        runId,
+        fieldId,
+        newValue,
+        note
+      });
+      return response.payload;
+    },
     async approveRun(runId) {
       const approved = await invokeTauri<{ payload: RuntimeExecutionResult }>("approve_run", { runId });
       return approved.payload;
+    },
+    async rejectRun(runId, note) {
+      const rejected = await invokeTauri<{ payload: RuntimeExecutionResult }>("reject_run", { runId, note });
+      return rejected.payload;
     },
     async exportRun(runId, exportTarget) {
       const exported = await invokeTauri<{ payload: { artifact_ref: string; run: RuntimeRunRecord } }>("export_run", {

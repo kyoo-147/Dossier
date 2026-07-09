@@ -37,6 +37,17 @@ def test_runtime_api_health_and_run_lifecycle(tmp_path: Path) -> None:
     assert executed.status_code == 200
     assert executed.json()["run"]["status"] == "needs_review"
 
+    review_listing = client.get(f"/runs/{run_id}/review")
+    assert review_listing.status_code == 200
+    assert len(review_listing.json()["review_tasks"]) == 1
+
+    edited = client.post(
+        f"/runs/{run_id}/review/edit",
+        json={"field_id": "fld_total_amount", "new_value": "3000", "note": "manual correction"},
+    )
+    assert edited.status_code == 200
+    assert edited.json()["revisions"][0]["source"] == "human_edit"
+
     approved = client.post(f"/runs/{run_id}/approve")
     assert approved.status_code == 200
     assert approved.json()["run"]["status"] == "approved"

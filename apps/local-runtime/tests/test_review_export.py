@@ -21,8 +21,39 @@ def test_schema_workflow_generates_review_and_exports(tmp_path: Path) -> None:
     assert result["run"]["status"] == "needs_review"
     assert len(result["review_tasks"]) == 1
 
+    edited = runner.apply_field_edit(run.run_id, "fld_total_amount", "3000", "qa-user", "corrected total")
+    assert edited["fields"][2]["human_approved_value"] == "3000"
+    assert edited["revisions"][0]["source"] == "human_edit"
+    assert edited["approval_audit"][0]["action"] == "field_edited"
+
+    review_listing = runner.list_review_tasks(run.run_id)
+    assert len(review_listing["review_tasks"]) == 1
+    assert len(review_listing["revisions"]) == 1
+
     approved = runner.approve_run(run.run_id, "qa-user")
     assert approved["run"]["status"] == "approved"
+    assert approved["review_tasks"][0]["status"] == "approved"
 
     exported = runner.export_run(run.run_id, "json")
     assert exported["artifact_ref"].startswith("artifact://")
+
+
+def test_reject_run_records_audit(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    run = runner.create_run("doc_2", "schema_workflow", "schema_workflow", "0.1.0")
+
+    runner.execute_run(
+        run.run_id,
+        {
+            "document_id": "doc_2",
+            "file_name": "invoice_02.pdf",
+            "source_type": "pdf",
+            "page_count": 1,
+            "has_schema": True,
+        },
+    )
+
+    rejected = runner.reject_run(run.run_id, "qa-user", "mismatch unresolved")
+    assert rejected["run"]["status"] == "failed"
+    assert rejected["review_tasks"][0]["status"] == "rejected"
+    assert rejected["approval_audit"][0]["action"] == "rejected"

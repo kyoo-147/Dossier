@@ -1,12 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { SampleFixture } from "@dossier/sample-data";
-import { createDesktopGateway, type DesktopKernelStatus, type RuntimeExecutionResult } from "./desktopGateway.js";
+import {
+  createDesktopGateway,
+  type DesktopKernelStatus,
+  type RuntimeApprovalAuditRecord,
+  type RuntimeExecutionResult,
+  type RuntimeRevisionRecord,
+  type RuntimeReviewTaskRecord
+} from "./desktopGateway.js";
 
 interface FixtureSessionState {
   processing: boolean;
   result?: RuntimeExecutionResult;
   artifactRef?: string | undefined;
   error?: string | undefined;
+  reviewTasks?: RuntimeReviewTaskRecord[];
+  revisions?: RuntimeRevisionRecord[];
+  approvalAudit?: RuntimeApprovalAuditRecord[];
 }
 
 interface RuntimeContextValue {
@@ -16,7 +26,10 @@ interface RuntimeContextValue {
   bootstrapError: string | null;
   sessions: Record<string, FixtureSessionState>;
   processFixture(fixture: SampleFixture): Promise<void>;
+  refreshReview(fixture: SampleFixture): Promise<void>;
+  editField(fixture: SampleFixture, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
+  rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
 }
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
@@ -77,7 +90,15 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         const result = await gateway.processFixture(fixture);
         const status = await gateway.getKernelStatus();
         setKernelStatus(status);
-        setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: false, result }));
+        setSessions((current) =>
+          patchSessionState(current, fixture.fixtureId, {
+            processing: false,
+            result,
+            reviewTasks: result.review_tasks,
+            revisions: result.revisions ?? [],
+            approvalAudit: result.approval_audit ?? []
+          })
+        );
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, fixture.fixtureId, {
@@ -88,6 +109,58 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       }
     },
     [gateway]
+  );
+
+  const refreshReview = useCallback(
+    async (fixture: SampleFixture) => {
+      const session = sessions[fixture.fixtureId];
+      const runId = session?.result?.run.run_id;
+      if (!runId) {
+        return;
+      }
+
+      const review = await gateway.listReviewTasks(runId);
+      setSessions((current) =>
+        patchSessionState(current, fixture.fixtureId, {
+          reviewTasks: review.review_tasks,
+          revisions: review.revisions ?? [],
+          approvalAudit: review.approval_audit ?? []
+        })
+      );
+    },
+    [gateway, sessions]
+  );
+
+  const editField = useCallback(
+    async (fixture: SampleFixture, fieldId: string, newValue: string, note?: string) => {
+      const session = sessions[fixture.fixtureId];
+      const runId = session?.result?.run.run_id;
+      if (!runId) {
+        throw new Error("Run has not been executed yet.");
+      }
+
+      setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
+      try {
+        const result = await gateway.applyFieldEdit(runId, fieldId, newValue, note);
+        setSessions((current) =>
+          patchSessionState(current, fixture.fixtureId, {
+            processing: false,
+            result,
+            reviewTasks: result.review_tasks,
+            revisions: result.revisions ?? [],
+            approvalAudit: result.approval_audit ?? []
+          })
+        );
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, fixture.fixtureId, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, sessions]
   );
 
   const approveAndExport = useCallback(
@@ -106,7 +179,42 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           patchSessionState(current, fixture.fixtureId, {
             processing: false,
             result: approved,
-            artifactRef: exported.artifact_ref
+            artifactRef: exported.artifact_ref,
+            reviewTasks: approved.review_tasks,
+            revisions: approved.revisions ?? [],
+            approvalAudit: approved.approval_audit ?? []
+          })
+        );
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, fixture.fixtureId, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, sessions]
+  );
+
+  const rejectRun = useCallback(
+    async (fixture: SampleFixture, note?: string) => {
+      const session = sessions[fixture.fixtureId];
+      const runId = session?.result?.run.run_id;
+      if (!runId) {
+        throw new Error("Run has not been executed yet.");
+      }
+
+      setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
+      try {
+        const rejected = await gateway.rejectRun(runId, note);
+        setSessions((current) =>
+          patchSessionState(current, fixture.fixtureId, {
+            processing: false,
+            result: rejected,
+            reviewTasks: rejected.review_tasks,
+            revisions: rejected.revisions ?? [],
+            approvalAudit: rejected.approval_audit ?? []
           })
         );
       } catch (error) {
@@ -130,7 +238,10 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         bootstrapError,
         sessions,
         processFixture,
-        approveAndExport
+        refreshReview,
+        editField,
+        approveAndExport,
+        rejectRun
       }}
     >
       {children}

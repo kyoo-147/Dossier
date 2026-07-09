@@ -11,7 +11,7 @@ from .models import RunRecord, utc_now_iso
 from .provider_registry import ProviderDefinition, ProviderRegistry
 from .providers import layout_provider, ocr_printed_provider, probe_provider, table_parser_provider
 from .repair import run_repair_pass
-from .review import ReviewTaskRecord
+from .review import ApprovalAuditRecord, ReviewTaskRecord, RevisionRecord
 from .validation import validate_fields
 
 
@@ -24,6 +24,8 @@ class RuntimeRunner:
       self._events: list[dict] = []
       self._run_outputs: dict[str, dict] = {}
       self._review_tasks: dict[str, list[ReviewTaskRecord]] = {}
+      self._revisions: dict[str, list[RevisionRecord]] = {}
+      self._approval_audit: dict[str, list[ApprovalAuditRecord]] = {}
       self._register_baseline_providers()
 
     @property
@@ -85,6 +87,8 @@ class RuntimeRunner:
         "warnings": final_warnings,
         "repair": repair_result,
         "review_tasks": [self._serialize_review_task(task) for task in review_tasks],
+        "revisions": [self._serialize_revision(revision) for revision in self._revisions.get(run_id, [])],
+        "approval_audit": [self._serialize_approval(record) for record in self._approval_audit.get(run_id, [])],
       }
       self._run_outputs[run_id] = result
       self._emit("run.executed", run.trace_id, run.run_id, run.document_id, {"status": run.status})
@@ -92,6 +96,19 @@ class RuntimeRunner:
 
     def approve_run(self, run_id: str, approved_by: str) -> dict:
       run = self.update_status(run_id, "approved")
+      self._set_review_tasks_status(run_id, "approved")
+      self._approval_audit.setdefault(run_id, []).append(
+        ApprovalAuditRecord(
+          approval_id=f"approval_{uuid.uuid4().hex[:10]}",
+          run_id=run_id,
+          review_task_id=self._review_tasks.get(run_id, [None])[0].review_task_id if self._review_tasks.get(run_id) else None,
+          action="approved",
+          actor=approved_by,
+          created_at=utc_now_iso(),
+          note=None,
+          revision_id=None,
+        )
+      )
       self._emit(
         "approval.completed",
         run.trace_id,
@@ -101,6 +118,105 @@ class RuntimeRunner:
       )
       output = self._run_outputs[run_id]
       output["run"] = self._serialize_run(run)
+      output["review_tasks"] = [self._serialize_review_task(task) for task in self._review_tasks.get(run_id, [])]
+      output["approval_audit"] = [self._serialize_approval(record) for record in self._approval_audit.get(run_id, [])]
+      return output
+
+    def reject_run(self, run_id: str, rejected_by: str, note: str | None = None) -> dict:
+      run = self.update_status(run_id, "failed", terminal=True)
+      self._set_review_tasks_status(run_id, "rejected")
+      self._approval_audit.setdefault(run_id, []).append(
+        ApprovalAuditRecord(
+          approval_id=f"approval_{uuid.uuid4().hex[:10]}",
+          run_id=run_id,
+          review_task_id=self._review_tasks.get(run_id, [None])[0].review_task_id if self._review_tasks.get(run_id) else None,
+          action="rejected",
+          actor=rejected_by,
+          created_at=utc_now_iso(),
+          note=note,
+          revision_id=None,
+        )
+      )
+      output = self._run_outputs[run_id]
+      output["run"] = self._serialize_run(run)
+      output["review_tasks"] = [self._serialize_review_task(task) for task in self._review_tasks.get(run_id, [])]
+      output["approval_audit"] = [self._serialize_approval(record) for record in self._approval_audit.get(run_id, [])]
+      self._emit("approval.rejected", run.trace_id, run.run_id, run.document_id, {"status": run.status, "note": note})
+      return output
+
+    def list_review_tasks(self, run_id: str) -> dict:
+      return {
+        "review_tasks": [self._serialize_review_task(task) for task in self._review_tasks.get(run_id, [])],
+        "revisions": [self._serialize_revision(revision) for revision in self._revisions.get(run_id, [])],
+        "approval_audit": [self._serialize_approval(record) for record in self._approval_audit.get(run_id, [])],
+      }
+
+    def apply_field_edit(
+      self,
+      run_id: str,
+      field_id: str,
+      new_value: str,
+      edited_by: str,
+      note: str | None = None,
+    ) -> dict:
+      output = self._run_outputs[run_id]
+      field = next((item for item in output["fields"] if item["field_id"] == field_id), None)
+      if field is None:
+        raise KeyError(f"field not found: {field_id}")
+
+      before_value = field.get("human_approved_value") or field.get("normalized_value")
+      field["human_approved_value"] = new_value
+      field["normalized_value"] = new_value
+      field["status"] = "approved"
+      field["warning_codes"] = []
+
+      output["warnings"] = [
+        warning for warning in output["warnings"] if field["label"].lower() not in warning["message"].lower()
+      ]
+
+      revision = RevisionRecord(
+        revision_id=f"revision_{uuid.uuid4().hex[:10]}",
+        run_id=run_id,
+        document_id=output["run"]["document_id"],
+        field_id=field_id,
+        source="human_edit",
+        author_type="user",
+        created_at=utc_now_iso(),
+        summary=f"Updated {field['label']}",
+        before_value=before_value,
+        after_value=new_value,
+        note=note,
+      )
+      self._revisions.setdefault(run_id, []).append(revision)
+      self._approval_audit.setdefault(run_id, []).append(
+        ApprovalAuditRecord(
+          approval_id=f"approval_{uuid.uuid4().hex[:10]}",
+          run_id=run_id,
+          review_task_id=self._review_tasks.get(run_id, [None])[0].review_task_id if self._review_tasks.get(run_id) else None,
+          action="field_edited",
+          actor=edited_by,
+          created_at=utc_now_iso(),
+          note=note,
+          revision_id=revision.revision_id,
+        )
+      )
+
+      if not output["warnings"]:
+        self._set_review_tasks_status(run_id, "resolved")
+        if output["run"]["status"] == "needs_review":
+          run = self.update_status(run_id, "completed", terminal=False)
+          output["run"] = self._serialize_run(run)
+
+      output["review_tasks"] = [self._serialize_review_task(task) for task in self._review_tasks.get(run_id, [])]
+      output["revisions"] = [self._serialize_revision(item) for item in self._revisions.get(run_id, [])]
+      output["approval_audit"] = [self._serialize_approval(item) for item in self._approval_audit.get(run_id, [])]
+      self._emit(
+        "review.field_edited",
+        output["run"]["trace_id"],
+        run_id,
+        output["run"]["document_id"],
+        {"field_id": field_id, "edited_by": edited_by, "revision_id": revision.revision_id},
+      )
       return output
 
     def export_run(self, run_id: str, export_target: str) -> dict:
@@ -193,6 +309,39 @@ class RuntimeRunner:
         "assigned_to": task.assigned_to,
         "required_action": task.required_action,
       }
+
+    @staticmethod
+    def _serialize_revision(revision: RevisionRecord) -> dict:
+      return {
+        "revision_id": revision.revision_id,
+        "run_id": revision.run_id,
+        "document_id": revision.document_id,
+        "field_id": revision.field_id,
+        "source": revision.source,
+        "author_type": revision.author_type,
+        "created_at": revision.created_at,
+        "summary": revision.summary,
+        "before_value": revision.before_value,
+        "after_value": revision.after_value,
+        "note": revision.note,
+      }
+
+    @staticmethod
+    def _serialize_approval(record: ApprovalAuditRecord) -> dict:
+      return {
+        "approval_id": record.approval_id,
+        "run_id": record.run_id,
+        "review_task_id": record.review_task_id,
+        "action": record.action,
+        "actor": record.actor,
+        "created_at": record.created_at,
+        "note": record.note,
+        "revision_id": record.revision_id,
+      }
+
+    def _set_review_tasks_status(self, run_id: str, status: str) -> None:
+      for task in self._review_tasks.get(run_id, []):
+        task.status = status
 
     def _register_baseline_providers(self) -> None:
       self.provider_registry.register(

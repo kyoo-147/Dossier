@@ -143,6 +143,39 @@ pub fn approve_run(run_id: String, state: State<'_, AppState>) -> Result<Runtime
 }
 
 #[tauri::command]
+pub fn reject_run(
+    run_id: String,
+    note: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
+    Ok(RuntimeActionResponse {
+        payload: state.runtime_gateway.reject_run(&run_id, note.as_deref())?,
+    })
+}
+
+#[tauri::command]
+pub fn list_review_tasks(run_id: String, state: State<'_, AppState>) -> Result<RuntimeActionResponse, String> {
+    Ok(RuntimeActionResponse {
+        payload: state.runtime_gateway.list_review_tasks(&run_id)?,
+    })
+}
+
+#[tauri::command]
+pub fn apply_field_edit(
+    run_id: String,
+    field_id: String,
+    new_value: String,
+    note: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
+    Ok(RuntimeActionResponse {
+        payload: state
+            .runtime_gateway
+            .apply_field_edit(&run_id, &field_id, &new_value, note.as_deref())?,
+    })
+}
+
+#[tauri::command]
 pub fn export_run(
     run_id: String,
     export_target: String,

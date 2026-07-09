@@ -24,6 +24,16 @@ class ExecuteRunRequest(BaseModel):
     has_schema: bool = False
 
 
+class FieldEditRequest(BaseModel):
+    field_id: str
+    new_value: str
+    note: str | None = None
+
+
+class RejectRunRequest(BaseModel):
+    note: str | None = None
+
+
 def create_app(state_root: Path | None = None) -> FastAPI:
     resolved_state_root = state_root or Path(os.environ.get("DOSSIER_STATE_ROOT", ".dossier/runtime"))
     runner = RuntimeRunner(resolved_state_root)
@@ -55,6 +65,18 @@ def create_app(state_root: Path | None = None) -> FastAPI:
     @app.post("/runs/{run_id}/approve")
     def approve_run(run_id: str) -> dict[str, object]:
       return runner.approve_run(run_id, "desktop-user")
+
+    @app.post("/runs/{run_id}/reject")
+    def reject_run(run_id: str, request: RejectRunRequest) -> dict[str, object]:
+      return runner.reject_run(run_id, "desktop-user", request.note)
+
+    @app.get("/runs/{run_id}/review")
+    def list_review_tasks(run_id: str) -> dict[str, object]:
+      return runner.list_review_tasks(run_id)
+
+    @app.post("/runs/{run_id}/review/edit")
+    def apply_field_edit(run_id: str, request: FieldEditRequest) -> dict[str, object]:
+      return runner.apply_field_edit(run_id, request.field_id, request.new_value, "desktop-user", request.note)
 
     @app.post("/runs/{run_id}/export/{export_target}")
     def export_run(run_id: str, export_target: str) -> dict[str, object]:

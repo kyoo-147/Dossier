@@ -20,6 +20,7 @@ try {
     try {
         cargo test -q
         cargo check -q
+        cargo build -q
     }
     finally {
         Pop-Location

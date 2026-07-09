@@ -22,6 +22,9 @@ pub fn run() {
             commands::create_run,
             commands::execute_run,
             commands::approve_run,
+            commands::reject_run,
+            commands::list_review_tasks,
+            commands::apply_field_edit,
             commands::export_run
         ])
         .run(tauri::generate_context!())

@@ -125,6 +125,40 @@ impl RuntimeGateway {
         self.post_json(&format!("/runs/{run_id}/approve"), &Value::Object(Default::default()))
     }
 
+    pub fn reject_run(&self, run_id: &str, note: Option<&str>) -> Result<Value, String> {
+        self.post_json(
+            &format!("/runs/{run_id}/reject"),
+            &serde_json::json!({ "note": note }),
+        )
+    }
+
+    pub fn list_review_tasks(&self, run_id: &str) -> Result<Value, String> {
+        self.client
+            .get(format!("{}/runs/{run_id}/review", self.base_url()))
+            .send()
+            .and_then(|response| response.error_for_status())
+            .map_err(|error| format!("runtime review list request failed: {error}"))?
+            .json::<Value>()
+            .map_err(|error| format!("runtime review list JSON decode failed: {error}"))
+    }
+
+    pub fn apply_field_edit(
+        &self,
+        run_id: &str,
+        field_id: &str,
+        new_value: &str,
+        note: Option<&str>,
+    ) -> Result<Value, String> {
+        self.post_json(
+            &format!("/runs/{run_id}/review/edit"),
+            &serde_json::json!({
+                "field_id": field_id,
+                "new_value": new_value,
+                "note": note
+            }),
+        )
+    }
+
     pub fn export_run(&self, run_id: &str, export_target: &str) -> Result<Value, String> {
         self.post_json(
             &format!("/runs/{run_id}/export/{export_target}"),
