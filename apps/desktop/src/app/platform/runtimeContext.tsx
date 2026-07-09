@@ -27,6 +27,7 @@ interface RuntimeContextValue {
   bootstrapError: string | null;
   documents: DesktopDocumentRecord[];
   sessions: Record<string, FixtureSessionState>;
+  pickDocumentSource(): Promise<string | null>;
   registerDocument(input: {
     sourcePath: string;
     modeHint: string;
@@ -144,6 +145,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     },
     [gateway]
   );
+
+  const pickDocumentSource = useCallback(async () => gateway.pickDocumentSource(), [gateway]);
 
   const processDocument = useCallback(
     async (document: DesktopDocumentRecord) => {
@@ -289,6 +292,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         bootstrapError,
         documents,
         sessions,
+        pickDocumentSource,
         registerDocument,
         processFixture,
         processDocument,

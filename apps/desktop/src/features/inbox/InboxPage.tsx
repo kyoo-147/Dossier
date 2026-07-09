@@ -5,7 +5,7 @@ import { FixtureSummaryCard } from "../workspace/FixtureSummaryCard.js";
 import { demoFixtures } from "../workspace/workspaceFixtures.js";
 
 export function InboxPage() {
-  const { documents, registerDocument, mode } = useRuntimeContext();
+  const { documents, registerDocument, pickDocumentSource, mode } = useRuntimeContext();
   const [sourcePath, setSourcePath] = useState("");
   const [modeHint, setModeHint] = useState("generic_parse");
   const [pageCount, setPageCount] = useState("1");
@@ -21,12 +21,33 @@ export function InboxPage() {
       </div>
       <section style={{ border: "1px solid #d6d3d1", background: "#fcfcfb", padding: 16, display: "grid", gap: 12 }}>
         <div style={{ fontWeight: 600 }}>Register local document</div>
-        <input
-          value={sourcePath}
-          onChange={(event) => setSourcePath(event.target.value)}
-          placeholder="D:\\docs\\invoice.pdf"
-          style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
-        />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
+          <input
+            value={sourcePath}
+            onChange={(event) => setSourcePath(event.target.value)}
+            placeholder="D:\\docs\\invoice.pdf"
+            style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
+          />
+          <button
+            onClick={() =>
+              void (async () => {
+                const picked = await pickDocumentSource();
+                if (picked) {
+                  setSourcePath(picked);
+                  await registerDocument({
+                    sourcePath: picked,
+                    modeHint,
+                    pageCount: Number(pageCount) || 1,
+                    hasSchema
+                  });
+                }
+              })()
+            }
+            style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
+          >
+            Pick from device
+          </button>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px auto", gap: 10 }}>
           <select value={modeHint} onChange={(event) => setModeHint(event.target.value)} style={{ padding: "10px 12px" }}>
             <option value="quick_ocr">quick_ocr</option>

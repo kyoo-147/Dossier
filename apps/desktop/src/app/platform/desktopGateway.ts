@@ -106,6 +106,7 @@ export interface DesktopGateway {
   getKernelStatus(): Promise<DesktopKernelStatus>;
   initializeWorkspace(workspaceRoot?: string): Promise<DesktopWorkspacePaths>;
   ensureRuntime(): Promise<DesktopRuntimeStatus>;
+  pickDocumentSource(): Promise<string | null>;
   listDocuments(): Promise<DesktopDocumentRecord[]>;
   registerDocument(input: {
     sourcePath: string;
@@ -221,6 +222,9 @@ function createBrowserMockGateway(): DesktopGateway {
         base_url: "mock://runtime",
         port: 0
       };
+    },
+    async pickDocumentSource() {
+      return "D:\\docs\\picked-demo.pdf";
     },
     async listDocuments() {
       return Array.from(mockDocuments.values());
@@ -418,6 +422,22 @@ function createTauriGateway(): DesktopGateway {
     },
     async ensureRuntime() {
       return invokeTauri<DesktopRuntimeStatus>("ensure_runtime");
+    },
+    async pickDocumentSource() {
+      const dialog = await import("@tauri-apps/plugin-dialog");
+      const selection = await dialog.open({
+        title: "Select document",
+        multiple: false,
+        directory: false,
+        filters: [
+          {
+            name: "Documents",
+            extensions: ["pdf", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"]
+          }
+        ]
+      });
+
+      return typeof selection === "string" ? selection : null;
     },
     async listDocuments() {
       const response = await invokeTauri<{ documents: DesktopDocumentRecord[] }>("list_documents");

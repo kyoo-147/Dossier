@@ -13,6 +13,7 @@ pub fn run() {
     let runtime_gateway = RuntimeGateway::new(runtime_root_from_manifest_dir());
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new(runtime_gateway))
         .invoke_handler(tauri::generate_handler![
             commands::get_kernel_status,

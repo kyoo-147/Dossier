@@ -84,6 +84,54 @@ describe("pilot flows", () => {
     await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
   });
 
+  it("picks a local document from the desktop picker entry point", async () => {
+    renderRoute("/inbox", <InboxPage />);
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Pick from device"));
+
+    await waitFor(() => expect(screen.getByText("picked-demo.pdf")).toBeInTheDocument());
+  });
+
+  it("shows local review documents in the review queue and supports approval", async () => {
+    render(
+      <RuntimeProvider>
+        <MemoryRouter initialEntries={["/inbox"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
+              <Route path="/review" element={<ReviewPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+
+    const sourcePathInput = screen.getAllByRole("textbox")[0]!;
+    fireEvent.change(sourcePathInput, {
+      target: { value: "D:\\docs\\needs-review.pdf" }
+    });
+    fireEvent.click(screen.getByLabelText("Schema"));
+    fireEvent.click(screen.getByText("Add document"));
+    await waitFor(() => expect(screen.getByText("needs-review.pdf")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("needs-review.pdf"));
+    await waitFor(() => expect(screen.getByText("Run local pipeline")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Run local pipeline"));
+    await waitFor(() => expect(screen.getByText(/Run mock_local_/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Reviewed"));
+    await waitFor(() => expect(screen.getByText("Local review queue")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("needs-review.pdf"));
+
+    await waitFor(() => expect(screen.getByText("Approve and export JSON")).toBeEnabled());
+    fireEvent.click(screen.getByText("Approve and export JSON"));
+    await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
+  });
+
   it("renders quick OCR entry demo list", async () => {
     renderRoute("/quick-ocr", <QuickOcrPage />);
     await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
