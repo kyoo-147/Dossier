@@ -1,21 +1,28 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { RuntimeProvider } from "../src/app/platform/runtimeContext.js";
 import { AppShell } from "../src/app/layout/AppShell.js";
 import { WorkspacePage } from "../src/features/workspace/WorkspacePage.js";
 
 describe("workspace shell", () => {
-  it("renders the dossier shell and workspace layout", () => {
+  it("renders the dossier shell and workspace layout", async () => {
     render(
-      <MemoryRouter initialEntries={["/workspace?fixture=finance_risk_invoice"]}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/workspace" element={<WorkspacePage />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <RuntimeProvider>
+        <MemoryRouter initialEntries={["/workspace?fixture=finance_risk_invoice"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/workspace" element={<WorkspacePage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeProvider>
     );
+
+    await waitFor(() => {
+      expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument();
+    });
 
     expect(screen.getByText("Dossier")).toBeInTheDocument();
     expect(screen.getByText("Agentic Document Intelligence")).toBeInTheDocument();

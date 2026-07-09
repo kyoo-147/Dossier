@@ -17,7 +17,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_kernel_status,
             commands::initialize_workspace,
-            commands::get_runtime_bootstrap
+            commands::get_runtime_bootstrap,
+            commands::ensure_runtime,
+            commands::create_run,
+            commands::execute_run,
+            commands::approve_run,
+            commands::export_run
         ])
         .run(tauri::generate_context!())
         .expect("error while running Dossier desktop kernel");

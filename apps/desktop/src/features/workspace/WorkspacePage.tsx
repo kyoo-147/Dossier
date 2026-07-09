@@ -1,13 +1,51 @@
+import { useSearchParams } from "react-router-dom";
+import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { ActionPanel } from "./ActionPanel.js";
 import { FieldTable } from "./FieldTable.js";
 import { RiskPanel } from "./RiskPanel.js";
-import { useSearchParams } from "react-router-dom";
 import { resolveWorkspaceFixture } from "./workspaceFixtures.js";
+
+function deriveWorkspace(
+  fallback: ReturnType<typeof resolveWorkspaceFixture>["workspace"],
+  result: {
+    fields: Array<{ label: string; normalized_value: string; status?: string }>;
+    warnings: Array<{ code: string; message: string }>;
+    review_tasks: Array<{ review_task_id: string; status: string }>;
+    repair?: { attempts: Array<{ strategy: string; result: string }> };
+    run: { run_id: string; status: string };
+  } | undefined
+) {
+  if (!result) {
+    return fallback;
+  }
+
+  return {
+    ...fallback,
+    fields: result.fields.map((field) => ({
+      label: field.label,
+      value: field.normalized_value,
+      status: (field.status === "warning" ? "warning" : "approved") as "approved" | "warning"
+    })),
+    warnings: result.warnings.map((warning) => warning.message),
+    riskSummary:
+      result.warnings.length > 0
+        ? result.warnings.map((warning) => `${warning.code}: ${warning.message}`)
+        : ["No validation warnings after current run"],
+    riskScore: `${Math.min(result.warnings.length * 18, 99)}%`,
+    logs: [
+      `Run ${result.run.run_id} -> ${result.run.status}`,
+      ...result.review_tasks.map((task) => `Review task ${task.review_task_id} -> ${task.status}`),
+      ...(result.repair?.attempts.map((attempt) => `Repair ${attempt.strategy} -> ${attempt.result}`) ?? [])
+    ]
+  };
+}
 
 export function WorkspacePage() {
   const [searchParams] = useSearchParams();
   const fixture = resolveWorkspaceFixture(searchParams.get("fixture"));
-  const workspace = fixture.workspace;
+  const { sessions, processFixture, approveAndExport } = useRuntimeContext();
+  const session = sessions[fixture.fixtureId];
+  const workspace = deriveWorkspace(fixture.workspace, session?.result);
 
   return (
     <div
@@ -37,7 +75,15 @@ export function WorkspacePage() {
       <section style={{ padding: 16, display: "grid", gap: 16 }}>
         <FieldTable fields={workspace.fields} />
         <RiskPanel riskScore={workspace.riskScore} riskSummary={workspace.riskSummary} />
-        <ActionPanel />
+        <ActionPanel
+          processing={session?.processing ?? false}
+          hasRun={Boolean(session?.result)}
+          canApprove={Boolean(session?.result?.run.run_id)}
+          artifactRef={session?.artifactRef}
+          error={session?.error}
+          onProcess={() => void processFixture(fixture)}
+          onApproveAndExport={() => void approveAndExport(fixture)}
+        />
       </section>
       <section
         style={{

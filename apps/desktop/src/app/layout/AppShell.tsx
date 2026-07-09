@@ -1,5 +1,6 @@
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { SplitPanel } from "@dossier/ui-kit";
+import { useRuntimeContext } from "../platform/runtimeContext.js";
 
 const sidebarItems = [
   { label: "Inbox", count: 12 },
@@ -12,6 +13,15 @@ const sidebarItems = [
 ] as const;
 
 export function AppShell() {
+  const { booting, bootstrapError, kernelStatus, mode } = useRuntimeContext();
+  const runtimeLabel = bootstrapError
+    ? "Runtime error"
+    : booting
+      ? "Booting runtime"
+      : kernelStatus?.runtime.runtime_running
+        ? `Runtime ready (${mode})`
+        : `Runtime pending (${mode})`;
+
   return (
     <div
       style={{
@@ -33,18 +43,33 @@ export function AppShell() {
         <div style={{ fontWeight: 700, marginBottom: 24 }}>Dossier</div>
         <nav style={{ display: "grid", gap: 8 }}>
           {sidebarItems.map((item) => (
-            <div
+            <Link
               key={item.label}
+              to={
+                item.label === "Inbox"
+                  ? "/inbox"
+                  : item.label === "Settings"
+                    ? "/settings"
+                    : item.label === "All Documents"
+                      ? "/workspace"
+                      : item.label === "Processing"
+                        ? "/quick-ocr"
+                        : item.label === "Reviewed"
+                          ? "/review"
+                          : "/inbox"
+              }
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 padding: "8px 10px",
-                border: "1px solid transparent"
+                border: "1px solid transparent",
+                color: "#111827",
+                textDecoration: "none"
               }}
             >
               <span>{item.label}</span>
               {item.count !== null ? <span>{item.count}</span> : null}
-            </div>
+            </Link>
           ))}
         </nav>
       </aside>
@@ -61,7 +86,7 @@ export function AppShell() {
           }}
         >
           <div>Agentic Document Intelligence</div>
-          <div style={{ color: "#166534" }}>AI Agent Running</div>
+          <div style={{ color: bootstrapError ? "#b91c1c" : "#166534" }}>{runtimeLabel}</div>
         </header>
         <SplitPanel>
           <Outlet />

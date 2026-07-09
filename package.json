@@ -9,8 +9,11 @@
     "build": "pnpm -r --if-present build",
     "check": "pnpm -r --if-present check",
     "desktop": "pnpm --filter @dossier/desktop dev",
-    "runtime": "python -m dossier_runtime",
+    "desktop:tauri": "powershell -ExecutionPolicy Bypass -File .\\tooling\\scripts\\dev.ps1 -Tauri",
+    "runtime": "powershell -ExecutionPolicy Bypass -File .\\tooling\\scripts\\runtime.ps1",
+    "demo": "powershell -ExecutionPolicy Bypass -File .\\tooling\\scripts\\run-demo.ps1",
     "test": "pnpm -r --if-present test",
+    "test:all": "powershell -ExecutionPolicy Bypass -File .\\tooling\\scripts\\test.ps1",
     "test:unit": "vitest run",
     "dev": "pnpm -r --parallel --if-present dev"
   },
