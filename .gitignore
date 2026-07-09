@@ -1,0 +1,32 @@
+# Local product and design documentation
+PRODUCT.md
+DESIGN.md
+docs/
+
+# Local design tooling
+.impeccable/
+
+# Shallow upstream clones used for architecture and benchmark research
+research/upstreams/
+
+# Node and TypeScript
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Rust and Tauri
+target/
+src-tauri/target/
+
+# Runtime state and artifacts
+.dossier/
+artifacts/
+model-cache/

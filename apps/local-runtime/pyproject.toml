@@ -1,0 +1,14 @@
+[project]
+name = "dossier-local-runtime"
+version = "0.1.0"
+description = "Local Python runtime for Dossier"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.1",
+  "pydantic>=2.11.7",
+  "uvicorn>=0.35.0",
+  "pytest>=8.4.1"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

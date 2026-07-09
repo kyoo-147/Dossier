@@ -1,0 +1,27 @@
+{
+  "name": "dossier",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "check": "pnpm -r --if-present check",
+    "desktop": "pnpm --filter @dossier/desktop dev",
+    "runtime": "python -m dossier_runtime",
+    "test": "pnpm -r --if-present test",
+    "test:unit": "vitest run",
+    "dev": "pnpm -r --parallel --if-present dev"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "zod": "^4.1.5",
+    "jsdom": "^26.1.0"
+  }
+}
