@@ -82,7 +82,7 @@ export function WorkspacePage() {
   const [searchParams] = useSearchParams();
   const fixture = searchParams.get("document") ? null : resolveWorkspaceFixture(searchParams.get("fixture"));
   const documentId = searchParams.get("document");
-  const { documents, sessions, processFixture, processDocument, approveSessionAndExport, editSessionField, rejectSessionRun } =
+  const { documents, sessions, processFixture, processDocument, approveSessionAndExport, saveSessionExport, editSessionField, rejectSessionRun } =
     useRuntimeContext();
   const document = documentId ? documents.find((item) => item.document_id === documentId) ?? null : null;
   const sessionKey = document?.document_id ?? fixture?.fixtureId ?? "";
@@ -206,7 +206,9 @@ export function WorkspacePage() {
           processing={session?.processing ?? false}
           hasRun={Boolean(session?.result)}
           canApprove={Boolean(session?.result?.run.run_id)}
+          canSaveExport={Boolean(session?.artifactRef)}
           artifactRef={session?.artifactRef}
+          savedExportPath={session?.savedExportPath}
           error={session?.error}
           onProcess={() => {
             if (fixture) {
@@ -218,6 +220,10 @@ export function WorkspacePage() {
           onApproveAndExport={() => {
             if (!sessionKey) return;
             void approveSessionAndExport(sessionKey);
+          }}
+          onSaveExport={() => {
+            if (!sessionKey) return;
+            void saveSessionExport(sessionKey);
           }}
         />
       </section>

@@ -100,6 +100,38 @@ pub fn register_document(
     Ok(record)
 }
 
+pub fn copy_artifact_to_destination(
+    workspace_root: &Path,
+    artifact_ref: &str,
+    destination_path: &Path,
+) -> std::io::Result<String> {
+    let artifact_name = artifact_ref
+        .split('/')
+        .next_back()
+        .filter(|item| !item.is_empty())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid artifact ref"))?;
+    let source_path = workspace_root
+        .join(".dossier")
+        .join("state")
+        .join("runtime")
+        .join("artifacts")
+        .join(artifact_name);
+
+    if !source_path.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("artifact not found: {artifact_name}"),
+        ));
+    }
+
+    if let Some(parent) = destination_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    fs::copy(&source_path, destination_path)?;
+    Ok(destination_path.display().to_string())
+}
+
 fn save_documents(workspace_root: &Path, documents: &[DesktopDocumentRecord]) -> std::io::Result<()> {
     let registry_path = documents_registry_path(workspace_root);
     if let Some(parent) = registry_path.parent() {

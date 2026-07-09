@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { RuntimeProvider } from "../src/app/platform/runtimeContext.js";
 import { AppShell } from "../src/app/layout/AppShell.js";
+import { DocumentsPage } from "../src/features/documents/DocumentsPage.js";
 import { InboxPage } from "../src/features/inbox/InboxPage.js";
 import { QuickOcrPage } from "../src/features/quick-ocr/QuickOcrPage.js";
 import { ReviewPage } from "../src/features/review/ReviewPage.js";
@@ -59,6 +60,7 @@ describe("pilot flows", () => {
           <Routes>
             <Route element={<AppShell />}>
               <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/workspace" element={<WorkspacePage />} />
             </Route>
           </Routes>
@@ -130,6 +132,49 @@ describe("pilot flows", () => {
     await waitFor(() => expect(screen.getByText("Approve and export JSON")).toBeEnabled());
     fireEvent.click(screen.getByText("Approve and export JSON"));
     await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
+  });
+
+  it("shows registered local documents in the All Documents browser", async () => {
+    render(
+      <RuntimeProvider>
+        <MemoryRouter initialEntries={["/inbox"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+
+    const sourcePathInput = screen.getAllByRole("textbox")[0]!;
+    fireEvent.change(sourcePathInput, {
+      target: { value: "D:\\docs\\all-docs-demo.pdf" }
+    });
+    fireEvent.click(screen.getByText("Add document"));
+    await waitFor(() => expect(screen.getByText("all-docs-demo.pdf")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("All Documents"));
+    await waitFor(() => expect(screen.getByText("All documents")).toBeInTheDocument());
+    expect(screen.getByText("all-docs-demo.pdf")).toBeInTheDocument();
+  });
+
+  it("saves an exported artifact to a desktop path after approval", async () => {
+    renderRoute("/workspace?fixture=finance_clean_invoice", <WorkspacePage />);
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Run local pipeline"));
+    await waitFor(() => expect(screen.getByText(/Run mock_finance_clean_invoice/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Approve & Export JSON"));
+    await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_finance_clean_invoice\.json/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Save export to disk"));
+    await waitFor(() => expect(screen.getByText(/Saved to: D:\\Exports\\mock_finance_clean_invoice\.json/)).toBeInTheDocument());
   });
 
   it("renders quick OCR entry demo list", async () => {

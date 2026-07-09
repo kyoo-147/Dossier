@@ -51,7 +51,7 @@ export function AppShell() {
                   : item.label === "Settings"
                     ? "/settings"
                     : item.label === "All Documents"
-                      ? "/workspace"
+                      ? "/documents"
                       : item.label === "Processing"
                         ? "/quick-ocr"
                         : item.label === "Reviewed"

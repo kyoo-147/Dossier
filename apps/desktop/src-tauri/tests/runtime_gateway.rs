@@ -1,5 +1,7 @@
 use dossier_desktop_lib::runtime_gateway::RuntimeGateway;
-use dossier_desktop_lib::storage::{initialize_workspace, list_documents, register_document};
+use dossier_desktop_lib::storage::{
+    copy_artifact_to_destination, initialize_workspace, list_documents, register_document,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -37,4 +39,21 @@ fn document_registry_persists_local_documents() {
     assert_eq!(documents[0].document_id, record.document_id);
     assert_eq!(documents[0].file_name, "invoice_demo.pdf");
     assert_eq!(documents[0].mode_hint, "generic_parse");
+}
+
+#[test]
+fn artifact_copy_saves_to_requested_destination() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    initialize_workspace(temp_dir.path()).expect("workspace should initialize");
+
+    let artifact_dir = temp_dir.path().join(".dossier/state/runtime/artifacts");
+    std::fs::create_dir_all(&artifact_dir).expect("artifact dir should exist");
+    std::fs::write(artifact_dir.join("demo.json"), br#"{"ok":true}"#).expect("artifact should be written");
+
+    let destination = temp_dir.path().join("exports/final.json");
+    let saved = copy_artifact_to_destination(temp_dir.path(), "artifact://demo.json", &destination)
+        .expect("artifact should copy");
+
+    assert_eq!(saved, destination.display().to_string());
+    assert!(destination.exists());
 }

@@ -2,10 +2,13 @@ interface ActionPanelProps {
   processing: boolean;
   hasRun: boolean;
   canApprove: boolean;
+  canSaveExport: boolean;
   artifactRef?: string | undefined;
+  savedExportPath?: string | undefined;
   error?: string | undefined;
   onProcess(): void;
   onApproveAndExport(): void;
+  onSaveExport(): void;
 }
 
 function buttonStyle(primary = false) {
@@ -22,10 +25,13 @@ export function ActionPanel({
   processing,
   hasRun,
   canApprove,
+  canSaveExport,
   artifactRef,
+  savedExportPath,
   error,
   onProcess,
-  onApproveAndExport
+  onApproveAndExport,
+  onSaveExport
 }: ActionPanelProps) {
   return (
     <div style={{ border: "1px solid #d1d5db", background: "#fff", padding: 12, display: "grid", gap: 10 }}>
@@ -36,8 +42,14 @@ export function ActionPanel({
       <button disabled={processing || !canApprove} onClick={onApproveAndExport} style={buttonStyle()}>
         Approve & Export JSON
       </button>
+      <button disabled={processing || !canSaveExport} onClick={onSaveExport} style={buttonStyle()}>
+        Save export to disk
+      </button>
       <div style={{ color: "#6b7280", fontSize: 13 }}>
         {artifactRef ? `Last export: ${artifactRef}` : "No export artifact yet"}
+      </div>
+      <div style={{ color: "#6b7280", fontSize: 13 }}>
+        {savedExportPath ? `Saved to: ${savedExportPath}` : "Export has not been saved to disk"}
       </div>
       {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
     </div>

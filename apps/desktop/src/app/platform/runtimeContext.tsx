@@ -14,6 +14,7 @@ interface FixtureSessionState {
   processing: boolean;
   result?: RuntimeExecutionResult;
   artifactRef?: string | undefined;
+  savedExportPath?: string | undefined;
   error?: string | undefined;
   reviewTasks?: RuntimeReviewTaskRecord[];
   revisions?: RuntimeRevisionRecord[];
@@ -40,6 +41,7 @@ interface RuntimeContextValue {
   editField(fixture: SampleFixture, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
   rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
+  saveSessionExport(sessionKey: string): Promise<void>;
   refreshSessionReview(sessionKey: string): Promise<void>;
   editSessionField(sessionKey: string, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveSessionAndExport(sessionKey: string, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
@@ -77,6 +79,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           processing: false,
           result,
           artifactRef,
+          savedExportPath: artifactRef ? current[sessionKey]?.savedExportPath : undefined,
           reviewTasks: result.review_tasks,
           revisions: result.revisions ?? [],
           approvalAudit: result.approval_audit ?? []
@@ -283,6 +286,41 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     [rejectSessionRun]
   );
 
+  const saveSessionExport = useCallback(
+    async (sessionKey: string) => {
+      const session = sessions[sessionKey];
+      const artifactRef = session?.artifactRef;
+      if (!artifactRef) {
+        throw new Error("No exported artifact available yet.");
+      }
+
+      const suggestedName = artifactRef.split("/").pop() ?? "export.json";
+      const destinationPath = await gateway.pickSaveExportPath(suggestedName);
+      if (!destinationPath) {
+        return;
+      }
+
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
+      try {
+        const saved = await gateway.saveArtifactToPath(artifactRef, destinationPath);
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            savedExportPath: saved.saved_path
+          })
+        );
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, sessions]
+  );
+
   return (
     <RuntimeContext.Provider
       value={{
@@ -300,6 +338,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         editField,
         approveAndExport,
         rejectRun,
+        saveSessionExport,
         refreshSessionReview,
         editSessionField,
         approveSessionAndExport,

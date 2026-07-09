@@ -7,7 +7,7 @@ Current pilot scope:
 - Tauri 2 desktop shell with Rust kernel scaffold
 - Python local runtime for OCR/parse/validation/review/export flow
 - Shared contracts, pipeline core, provider SDK, domain packs, sample data, and benchmark harness
-- Fixture-driven UI for healthcare, finance, and enterprise demos
+- Desktop-native intake, review, export-save flow, plus fixture-driven demos for healthcare, finance, and enterprise
 
 ## Workspace layout
 
@@ -76,7 +76,8 @@ That script sets:
 ## Demo flow
 
 1. Run `pnpm desktop:tauri`.
-2. Open a fixture from Inbox, Quick OCR, or Review.
+2. Import a document from Inbox with `Pick from device` or use a bundled fixture.
 3. Run the local pipeline from the workspace.
-4. Approve and export JSON for review-gated fixtures.
-5. Run `pnpm benchmark` to inspect the baseline fixture metrics.
+4. Review queued documents from `Reviewed` or browse imported files from `All Documents`.
+5. Approve/export and save the produced artifact to disk.
+6. Run `pnpm benchmark` to inspect the baseline fixture metrics.

@@ -1,7 +1,7 @@
 use crate::runtime_gateway::{RuntimeBootstrap, RuntimeStatus};
 use crate::state::AppState;
 use crate::storage::{
-    initialize_workspace as initialize_workspace_dirs, list_documents as load_documents,
+    copy_artifact_to_destination, initialize_workspace as initialize_workspace_dirs, list_documents as load_documents,
     register_document as create_document_record, DesktopDocumentRecord, WorkspacePaths,
 };
 use serde::Serialize;
@@ -23,6 +23,11 @@ pub struct RuntimeActionResponse {
 #[derive(Debug, Serialize)]
 pub struct DocumentListResponse {
     pub documents: Vec<DesktopDocumentRecord>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ArtifactSaveResponse {
+    pub saved_path: String,
 }
 
 #[tauri::command]
@@ -228,6 +233,28 @@ pub fn export_run(
     Ok(RuntimeActionResponse {
         payload: state.runtime_gateway.export_run(&run_id, &export_target)?,
     })
+}
+
+#[tauri::command]
+pub fn save_artifact_to_path(
+    artifact_ref: String,
+    destination_path: String,
+    state: State<'_, AppState>,
+) -> Result<ArtifactSaveResponse, String> {
+    let workspace_root = {
+        let kernel = state
+            .kernel
+            .lock()
+            .map_err(|_| "kernel state is poisoned".to_string())?;
+        kernel.workspace_root.clone()
+    }
+    .ok_or("workspace must be initialized before saving artifacts")?;
+
+    let saved_path =
+        copy_artifact_to_destination(&workspace_root, &artifact_ref, &PathBuf::from(destination_path))
+            .map_err(|error| error.to_string())?;
+
+    Ok(ArtifactSaveResponse { saved_path })
 }
 
 #[tauri::command]

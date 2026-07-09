@@ -121,6 +121,8 @@ export interface DesktopGateway {
   approveRun(runId: string): Promise<RuntimeExecutionResult>;
   rejectRun(runId: string, note?: string): Promise<RuntimeExecutionResult>;
   exportRun(runId: string, exportTarget: "json" | "markdown" | "connector"): Promise<{ artifact_ref: string; run: RuntimeRunRecord }>;
+  pickSaveExportPath(suggestedName: string): Promise<string | null>;
+  saveArtifactToPath(artifactRef: string, destinationPath: string): Promise<{ saved_path: string }>;
 }
 
 const mockRuns = new Map<string, RuntimeExecutionResult>();
@@ -407,6 +409,12 @@ function createBrowserMockGateway(): DesktopGateway {
         artifact_ref: `artifact://mock/${runId}.${exportTarget === "connector" ? "txt" : exportTarget}`,
         run: result.run
       };
+    },
+    async pickSaveExportPath(suggestedName) {
+      return `D:\\Exports\\${suggestedName}`;
+    },
+    async saveArtifactToPath(_artifactRef, destinationPath) {
+      return { saved_path: destinationPath };
     }
   };
 }
@@ -518,6 +526,21 @@ function createTauriGateway(): DesktopGateway {
         export_target: exportTarget
       });
       return exported.payload;
+    },
+    async pickSaveExportPath(suggestedName) {
+      const dialog = await import("@tauri-apps/plugin-dialog");
+      const selection = await dialog.save({
+        title: "Save exported artifact",
+        defaultPath: suggestedName
+      });
+
+      return typeof selection === "string" ? selection : null;
+    },
+    async saveArtifactToPath(artifactRef, destinationPath) {
+      return invokeTauri<{ saved_path: string }>("save_artifact_to_path", {
+        artifact_ref: artifactRef,
+        destination_path: destinationPath
+      });
     }
   };
 }

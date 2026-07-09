@@ -28,7 +28,8 @@ pub fn run() {
             commands::reject_run,
             commands::list_review_tasks,
             commands::apply_field_edit,
-            commands::export_run
+            commands::export_run,
+            commands::save_artifact_to_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running Dossier desktop kernel");
