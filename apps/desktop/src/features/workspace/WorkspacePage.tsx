@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { ActionPanel } from "./ActionPanel.js";
@@ -80,16 +80,41 @@ function deriveWorkspace(
 
 export function WorkspacePage() {
   const [searchParams] = useSearchParams();
-  const fixture = resolveWorkspaceFixture(searchParams.get("fixture"));
-  const { sessions, processFixture, approveAndExport, editField, rejectRun } = useRuntimeContext();
-  const session = sessions[fixture.fixtureId];
-  const workspace = deriveWorkspace(fixture.workspace, session?.result);
+  const fixture = searchParams.get("document") ? null : resolveWorkspaceFixture(searchParams.get("fixture"));
+  const documentId = searchParams.get("document");
+  const { documents, sessions, processFixture, processDocument, approveSessionAndExport, editSessionField, rejectSessionRun } =
+    useRuntimeContext();
+  const document = documentId ? documents.find((item) => item.document_id === documentId) ?? null : null;
+  const sessionKey = document?.document_id ?? fixture?.fixtureId ?? "";
+  const session = sessionKey ? sessions[sessionKey] : undefined;
+  const fallbackWorkspace = fixture
+    ? fixture.workspace
+    : {
+        documentTitle: document?.file_name ?? "Local document",
+        subtitle: document?.source_path ?? "No path",
+        fields: [],
+        riskScore: "0%",
+        riskSummary: ["No runtime result yet"],
+        warnings: [],
+        logs: ["Document registered in local desktop catalog"]
+      };
+  const workspace = deriveWorkspace(fallbackWorkspace, session?.result);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(workspace.fields[0]?.fieldId ?? null);
   const selectedField = useMemo(
     () => workspace.fields.find((field) => field.fieldId === selectedFieldId) ?? workspace.fields[0] ?? null,
     [selectedFieldId, workspace.fields]
   );
   const [editValue, setEditValue] = useState("");
+
+  useEffect(() => {
+    const nextSelectedField = workspace.fields.find((field) => field.fieldId === selectedFieldId);
+    if (nextSelectedField) {
+      return;
+    }
+    const fallbackField = workspace.fields[0] ?? null;
+    setSelectedFieldId(fallbackField?.fieldId ?? null);
+    setEditValue(fallbackField?.normalizedValue ?? "");
+  }, [selectedFieldId, workspace.fields]);
 
   const stateLabel = session?.processing
     ? "processing"
@@ -109,10 +134,12 @@ export function WorkspacePage() {
       }}
     >
       <section style={{ borderRight: "1px solid #e5e7eb", padding: 16 }}>
-        <div style={{ fontWeight: 600, marginBottom: 12 }}>{fixture.workspace.documentTitle}</div>
-        <div style={{ color: "#6b7280", marginBottom: 8 }}>{fixture.workspace.subtitle}</div>
+        <div style={{ fontWeight: 600, marginBottom: 12 }}>{fallbackWorkspace.documentTitle}</div>
+        <div style={{ color: "#6b7280", marginBottom: 8 }}>{fallbackWorkspace.subtitle}</div>
         <div style={{ color: "#44403c", fontSize: 13, marginBottom: 8 }}>
-          {fixture.industry} · {fixture.mode} · {fixture.bucket}
+          {fixture
+            ? `${fixture.industry} · ${fixture.mode} · ${fixture.bucket}`
+            : `${document?.mode_hint ?? "generic_parse"} · ${document?.source_type ?? "document"} · local`}
         </div>
         <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>State: {stateLabel}</div>
         <div style={{ display: "grid", gap: 12 }}>
@@ -143,8 +170,8 @@ export function WorkspacePage() {
             <button
               disabled={!session?.result || !selectedField || !editValue}
               onClick={() => {
-                if (!selectedField) return;
-                void editField(fixture, selectedField.fieldId, editValue, "workspace manual correction");
+                if (!selectedField || !sessionKey) return;
+                void editSessionField(sessionKey, selectedField.fieldId, editValue, "workspace manual correction");
                 setEditValue("");
               }}
               style={{ padding: "10px 12px", border: "1px solid #2563eb", background: "#2563eb", color: "#fff" }}
@@ -153,7 +180,10 @@ export function WorkspacePage() {
             </button>
             <button
               disabled={!session?.result}
-              onClick={() => void rejectRun(fixture, "Rejected from workspace review")}
+              onClick={() => {
+                if (!sessionKey) return;
+                void rejectSessionRun(sessionKey, "Rejected from workspace review");
+              }}
               style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
             >
               Reject run
@@ -178,8 +208,17 @@ export function WorkspacePage() {
           canApprove={Boolean(session?.result?.run.run_id)}
           artifactRef={session?.artifactRef}
           error={session?.error}
-          onProcess={() => void processFixture(fixture)}
-          onApproveAndExport={() => void approveAndExport(fixture)}
+          onProcess={() => {
+            if (fixture) {
+              void processFixture(fixture);
+            } else if (document) {
+              void processDocument(document);
+            }
+          }}
+          onApproveAndExport={() => {
+            if (!sessionKey) return;
+            void approveSessionAndExport(sessionKey);
+          }}
         />
       </section>
       <section

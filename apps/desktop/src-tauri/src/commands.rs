@@ -1,6 +1,9 @@
 use crate::runtime_gateway::{RuntimeBootstrap, RuntimeStatus};
 use crate::state::AppState;
-use crate::storage::{initialize_workspace as initialize_workspace_dirs, WorkspacePaths};
+use crate::storage::{
+    initialize_workspace as initialize_workspace_dirs, list_documents as load_documents,
+    register_document as create_document_record, DesktopDocumentRecord, WorkspacePaths,
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -15,6 +18,11 @@ pub struct KernelStatusResponse {
 #[derive(Debug, Serialize)]
 pub struct RuntimeActionResponse {
     pub payload: Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DocumentListResponse {
+    pub documents: Vec<DesktopDocumentRecord>,
 }
 
 #[tauri::command]
@@ -42,6 +50,42 @@ pub fn initialize_workspace(
 #[tauri::command]
 pub fn get_runtime_bootstrap(state: State<'_, AppState>) -> RuntimeBootstrap {
     state.runtime_gateway.bootstrap()
+}
+
+#[tauri::command]
+pub fn list_documents(state: State<'_, AppState>) -> Result<DocumentListResponse, String> {
+    let workspace_root = {
+        let kernel = state
+            .kernel
+            .lock()
+            .map_err(|_| "kernel state is poisoned".to_string())?;
+        kernel.workspace_root.clone()
+    }
+    .ok_or("workspace must be initialized before listing documents")?;
+
+    let documents = load_documents(&workspace_root).map_err(|error| error.to_string())?;
+    Ok(DocumentListResponse { documents })
+}
+
+#[tauri::command]
+pub fn register_document(
+    source_path: String,
+    mode_hint: String,
+    page_count: u32,
+    has_schema: bool,
+    state: State<'_, AppState>,
+) -> Result<DesktopDocumentRecord, String> {
+    let workspace_root = {
+        let kernel = state
+            .kernel
+            .lock()
+            .map_err(|_| "kernel state is poisoned".to_string())?;
+        kernel.workspace_root.clone()
+    }
+    .ok_or("workspace must be initialized before registering documents")?;
+
+    create_document_record(&workspace_root, &PathBuf::from(source_path), &mode_hint, page_count, has_schema)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

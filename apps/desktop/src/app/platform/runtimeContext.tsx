@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { SampleFixture } from "@dossier/sample-data";
 import {
   createDesktopGateway,
+  type DesktopDocumentRecord,
   type DesktopKernelStatus,
   type RuntimeApprovalAuditRecord,
   type RuntimeExecutionResult,
@@ -24,12 +25,24 @@ interface RuntimeContextValue {
   kernelStatus: DesktopKernelStatus | null;
   booting: boolean;
   bootstrapError: string | null;
+  documents: DesktopDocumentRecord[];
   sessions: Record<string, FixtureSessionState>;
+  registerDocument(input: {
+    sourcePath: string;
+    modeHint: string;
+    pageCount: number;
+    hasSchema: boolean;
+  }): Promise<void>;
   processFixture(fixture: SampleFixture): Promise<void>;
+  processDocument(document: DesktopDocumentRecord): Promise<void>;
   refreshReview(fixture: SampleFixture): Promise<void>;
   editField(fixture: SampleFixture, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
   rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
+  refreshSessionReview(sessionKey: string): Promise<void>;
+  editSessionField(sessionKey: string, fieldId: string, newValue: string, note?: string): Promise<void>;
+  approveSessionAndExport(sessionKey: string, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
+  rejectSessionRun(sessionKey: string, note?: string): Promise<void>;
 }
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
@@ -53,7 +66,24 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [kernelStatus, setKernelStatus] = useState<DesktopKernelStatus | null>(null);
   const [booting, setBooting] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DesktopDocumentRecord[]>([]);
   const [sessions, setSessions] = useState<Record<string, FixtureSessionState>>({});
+
+  const updateSessionFromResult = useCallback(
+    (sessionKey: string, result: RuntimeExecutionResult, artifactRef?: string) => {
+      setSessions((current) =>
+        patchSessionState(current, sessionKey, {
+          processing: false,
+          result,
+          artifactRef,
+          reviewTasks: result.review_tasks,
+          revisions: result.revisions ?? [],
+          approvalAudit: result.approval_audit ?? []
+        })
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -63,8 +93,10 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         await gateway.initializeWorkspace("");
         await gateway.ensureRuntime();
         const status = await gateway.getKernelStatus();
+        const nextDocuments = await gateway.listDocuments();
         if (!cancelled) {
           setKernelStatus(status);
+          setDocuments(nextDocuments);
         }
       } catch (error) {
         if (!cancelled) {
@@ -90,15 +122,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         const result = await gateway.processFixture(fixture);
         const status = await gateway.getKernelStatus();
         setKernelStatus(status);
-        setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
-            processing: false,
-            result,
-            reviewTasks: result.review_tasks,
-            revisions: result.revisions ?? [],
-            approvalAudit: result.approval_audit ?? []
-          })
-        );
+        updateSessionFromResult(fixture.fixtureId, result);
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, fixture.fixtureId, {
@@ -108,12 +132,42 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         );
       }
     },
+    [gateway, updateSessionFromResult]
+  );
+
+  const registerDocument = useCallback(
+    async (input: { sourcePath: string; modeHint: string; pageCount: number; hasSchema: boolean }) => {
+      const created = await gateway.registerDocument(input);
+      const nextDocuments = await gateway.listDocuments();
+      setDocuments(nextDocuments);
+      setSessions((current) => patchSessionState(current, created.document_id, { processing: false }));
+    },
     [gateway]
   );
 
-  const refreshReview = useCallback(
-    async (fixture: SampleFixture) => {
-      const session = sessions[fixture.fixtureId];
+  const processDocument = useCallback(
+    async (document: DesktopDocumentRecord) => {
+      setSessions((current) => patchSessionState(current, document.document_id, { processing: true, error: undefined }));
+      try {
+        const result = await gateway.processDocument(document);
+        const status = await gateway.getKernelStatus();
+        setKernelStatus(status);
+        updateSessionFromResult(document.document_id, result);
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, document.document_id, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, updateSessionFromResult]
+  );
+
+  const refreshSessionReview = useCallback(
+    async (sessionKey: string) => {
+      const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
       if (!runId) {
         return;
@@ -121,7 +175,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 
       const review = await gateway.listReviewTasks(runId);
       setSessions((current) =>
-        patchSessionState(current, fixture.fixtureId, {
+        patchSessionState(current, sessionKey, {
           reviewTasks: review.review_tasks,
           revisions: review.revisions ?? [],
           approvalAudit: review.approval_audit ?? []
@@ -131,102 +185,99 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     [gateway, sessions]
   );
 
-  const editField = useCallback(
-    async (fixture: SampleFixture, fieldId: string, newValue: string, note?: string) => {
-      const session = sessions[fixture.fixtureId];
+  const editSessionField = useCallback(
+    async (sessionKey: string, fieldId: string, newValue: string, note?: string) => {
+      const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
       if (!runId) {
         throw new Error("Run has not been executed yet.");
       }
 
-      setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
       try {
         const result = await gateway.applyFieldEdit(runId, fieldId, newValue, note);
-        setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
-            processing: false,
-            result,
-            reviewTasks: result.review_tasks,
-            revisions: result.revisions ?? [],
-            approvalAudit: result.approval_audit ?? []
-          })
-        );
+        updateSessionFromResult(sessionKey, result);
       } catch (error) {
         setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
+          patchSessionState(current, sessionKey, {
             processing: false,
             error: error instanceof Error ? error.message : String(error)
           })
         );
       }
     },
-    [gateway, sessions]
+    [gateway, sessions, updateSessionFromResult]
   );
 
-  const approveAndExport = useCallback(
-    async (fixture: SampleFixture, exportTarget: "json" | "markdown" | "connector" = "json") => {
-      const session = sessions[fixture.fixtureId];
+  const approveSessionAndExport = useCallback(
+    async (sessionKey: string, exportTarget: "json" | "markdown" | "connector" = "json") => {
+      const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
       if (!runId) {
         throw new Error("Run has not been executed yet.");
       }
 
-      setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
       try {
         const approved = await gateway.approveRun(runId);
         const exported = await gateway.exportRun(runId, exportTarget);
-        setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
-            processing: false,
-            result: approved,
-            artifactRef: exported.artifact_ref,
-            reviewTasks: approved.review_tasks,
-            revisions: approved.revisions ?? [],
-            approvalAudit: approved.approval_audit ?? []
-          })
-        );
+        updateSessionFromResult(sessionKey, approved, exported.artifact_ref);
       } catch (error) {
         setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
+          patchSessionState(current, sessionKey, {
             processing: false,
             error: error instanceof Error ? error.message : String(error)
           })
         );
       }
     },
-    [gateway, sessions]
+    [gateway, sessions, updateSessionFromResult]
   );
 
-  const rejectRun = useCallback(
-    async (fixture: SampleFixture, note?: string) => {
-      const session = sessions[fixture.fixtureId];
+  const rejectSessionRun = useCallback(
+    async (sessionKey: string, note?: string) => {
+      const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
       if (!runId) {
         throw new Error("Run has not been executed yet.");
       }
 
-      setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
       try {
         const rejected = await gateway.rejectRun(runId, note);
-        setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
-            processing: false,
-            result: rejected,
-            reviewTasks: rejected.review_tasks,
-            revisions: rejected.revisions ?? [],
-            approvalAudit: rejected.approval_audit ?? []
-          })
-        );
+        updateSessionFromResult(sessionKey, rejected);
       } catch (error) {
         setSessions((current) =>
-          patchSessionState(current, fixture.fixtureId, {
+          patchSessionState(current, sessionKey, {
             processing: false,
             error: error instanceof Error ? error.message : String(error)
           })
         );
       }
     },
-    [gateway, sessions]
+    [gateway, sessions, updateSessionFromResult]
+  );
+
+  const refreshReview = useCallback(
+    async (fixture: SampleFixture) => refreshSessionReview(fixture.fixtureId),
+    [refreshSessionReview]
+  );
+
+  const editField = useCallback(
+    async (fixture: SampleFixture, fieldId: string, newValue: string, note?: string) =>
+      editSessionField(fixture.fixtureId, fieldId, newValue, note),
+    [editSessionField]
+  );
+
+  const approveAndExport = useCallback(
+    async (fixture: SampleFixture, exportTarget: "json" | "markdown" | "connector" = "json") =>
+      approveSessionAndExport(fixture.fixtureId, exportTarget),
+    [approveSessionAndExport]
+  );
+
+  const rejectRun = useCallback(
+    async (fixture: SampleFixture, note?: string) => rejectSessionRun(fixture.fixtureId, note),
+    [rejectSessionRun]
   );
 
   return (
@@ -236,12 +287,19 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         kernelStatus,
         booting,
         bootstrapError,
+        documents,
         sessions,
+        registerDocument,
         processFixture,
+        processDocument,
         refreshReview,
         editField,
         approveAndExport,
-        rejectRun
+        rejectRun,
+        refreshSessionReview,
+        editSessionField,
+        approveSessionAndExport,
+        rejectSessionRun
       }}
     >
       {children}

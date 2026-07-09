@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { RuntimeProvider } from "../src/app/platform/runtimeContext.js";
 import { AppShell } from "../src/app/layout/AppShell.js";
+import { InboxPage } from "../src/features/inbox/InboxPage.js";
 import { QuickOcrPage } from "../src/features/quick-ocr/QuickOcrPage.js";
 import { ReviewPage } from "../src/features/review/ReviewPage.js";
 import { WorkspacePage } from "../src/features/workspace/WorkspacePage.js";
@@ -49,6 +50,38 @@ describe("pilot flows", () => {
 
     await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
     expect(screen.getByText("Approve and export JSON")).toBeDisabled();
+  });
+
+  it("registers a local document and processes it from the workspace", async () => {
+    render(
+      <RuntimeProvider>
+        <MemoryRouter initialEntries={["/inbox"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+
+    const sourcePathInput = screen.getAllByRole("textbox")[0]!;
+    fireEvent.change(sourcePathInput, {
+      target: { value: "D:\\docs\\claim-form.pdf" }
+    });
+    fireEvent.click(screen.getByText("Add document"));
+
+    await waitFor(() => expect(screen.getByText("claim-form.pdf")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("claim-form.pdf"));
+
+    await waitFor(() => expect(screen.getByText("State: empty")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Run local pipeline"));
+    await waitFor(() => expect(screen.getByText(/Run mock_local_/)).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Approve & Export JSON"));
+    await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
   });
 
   it("renders quick OCR entry demo list", async () => {

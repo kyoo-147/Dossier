@@ -18,6 +18,8 @@ pub fn run() {
             commands::get_kernel_status,
             commands::initialize_workspace,
             commands::get_runtime_bootstrap,
+            commands::list_documents,
+            commands::register_document,
             commands::ensure_runtime,
             commands::create_run,
             commands::execute_run,

@@ -20,6 +20,18 @@ export interface DesktopKernelStatus {
   runtime: DesktopRuntimeStatus;
 }
 
+export interface DesktopDocumentRecord {
+  document_id: string;
+  file_name: string;
+  source_path: string;
+  source_type: string;
+  page_count: number;
+  has_schema: boolean;
+  mode_hint: string;
+  status: string;
+  created_at: string;
+}
+
 export interface RuntimeRunRecord {
   run_id: string;
   document_id: string;
@@ -94,7 +106,15 @@ export interface DesktopGateway {
   getKernelStatus(): Promise<DesktopKernelStatus>;
   initializeWorkspace(workspaceRoot?: string): Promise<DesktopWorkspacePaths>;
   ensureRuntime(): Promise<DesktopRuntimeStatus>;
+  listDocuments(): Promise<DesktopDocumentRecord[]>;
+  registerDocument(input: {
+    sourcePath: string;
+    modeHint: string;
+    pageCount: number;
+    hasSchema: boolean;
+  }): Promise<DesktopDocumentRecord>;
   processFixture(fixture: SampleFixture): Promise<RuntimeExecutionResult>;
+  processDocument(document: DesktopDocumentRecord): Promise<RuntimeExecutionResult>;
   listReviewTasks(runId: string): Promise<Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">>;
   applyFieldEdit(runId: string, fieldId: string, newValue: string, note?: string): Promise<RuntimeExecutionResult>;
   approveRun(runId: string): Promise<RuntimeExecutionResult>;
@@ -103,6 +123,7 @@ export interface DesktopGateway {
 }
 
 const mockRuns = new Map<string, RuntimeExecutionResult>();
+const mockDocuments = new Map<string, DesktopDocumentRecord>();
 
 function isTauriEnvironment(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -201,8 +222,70 @@ function createBrowserMockGateway(): DesktopGateway {
         port: 0
       };
     },
+    async listDocuments() {
+      return Array.from(mockDocuments.values());
+    },
+    async registerDocument(input) {
+      const fileName = input.sourcePath.split(/[\\/]/).pop() ?? input.sourcePath;
+      const record: DesktopDocumentRecord = {
+        document_id: `local_${Date.now()}`,
+        file_name: fileName,
+        source_path: input.sourcePath,
+        source_type: fileName.toLowerCase().endsWith(".pdf") ? "pdf" : "image",
+        page_count: input.pageCount,
+        has_schema: input.hasSchema,
+        mode_hint: input.modeHint,
+        status: "ready",
+        created_at: new Date().toISOString()
+      };
+      mockDocuments.set(record.document_id, record);
+      return record;
+    },
     async processFixture(fixture) {
       const result = buildMockResult(fixture);
+      mockRuns.set(result.run.run_id, result);
+      return result;
+    },
+    async processDocument(document) {
+      const fallbackWarnings = document.has_schema ? ["Approval required before export"] : [];
+      const result: RuntimeExecutionResult = {
+        run: {
+          run_id: `mock_${document.document_id}`,
+          document_id: document.document_id,
+          mode: document.mode_hint,
+          pipeline_id: `local_${document.mode_hint}`,
+          pipeline_version: "0.1.0",
+          status: document.has_schema ? "needs_review" : "completed",
+          trace_id: `trace_${document.document_id}`,
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString()
+        },
+        fields: [
+          {
+            field_id: "mock_local_title",
+            label: "Document Title",
+            normalized_value: document.file_name,
+            observed_value: document.file_name,
+            human_approved_value: null,
+            status: document.has_schema ? "warning" : "approved",
+            warning_codes: document.has_schema ? ["APPROVAL_REQUIRED"] : []
+          }
+        ],
+        warnings: fallbackWarnings.map((message) => ({ code: "APPROVAL_REQUIRED", message, severity: "medium" })),
+        review_tasks: document.has_schema
+          ? [
+              {
+                review_task_id: `review_${document.document_id}`,
+                reason_codes: ["APPROVAL_REQUIRED"],
+                status: "open",
+                priority: "medium",
+                required_action: "approval"
+              }
+            ]
+          : [],
+        revisions: [],
+        approval_audit: []
+      };
       mockRuns.set(result.run.run_id, result);
       return result;
     },
@@ -331,26 +414,57 @@ function createTauriGateway(): DesktopGateway {
       return invokeTauri<DesktopKernelStatus>("get_kernel_status");
     },
     async initializeWorkspace(workspaceRoot = "") {
-      return invokeTauri<DesktopWorkspacePaths>("initialize_workspace", { workspaceRoot });
+      return invokeTauri<DesktopWorkspacePaths>("initialize_workspace", { workspace_root: workspaceRoot });
     },
     async ensureRuntime() {
       return invokeTauri<DesktopRuntimeStatus>("ensure_runtime");
     },
+    async listDocuments() {
+      const response = await invokeTauri<{ documents: DesktopDocumentRecord[] }>("list_documents");
+      return response.documents;
+    },
+    async registerDocument(input) {
+      return invokeTauri<DesktopDocumentRecord>("register_document", {
+        source_path: input.sourcePath,
+        mode_hint: input.modeHint,
+        page_count: input.pageCount,
+        has_schema: input.hasSchema
+      });
+    },
     async processFixture(fixture) {
       const created = await invokeTauri<{ payload: RuntimeRunRecord }>("create_run", {
-        documentId: fixture.fixtureId,
+        document_id: fixture.fixtureId,
         mode: fixture.mode,
-        pipelineId: `${fixture.industry}_${fixture.mode}`,
-        pipelineVersion: "0.1.0"
+        pipeline_id: `${fixture.industry}_${fixture.mode}`,
+        pipeline_version: "0.1.0"
       });
 
       const executed = await invokeTauri<{ payload: RuntimeExecutionResult }>("execute_run", {
-        runId: created.payload.run_id,
-        documentId: fixture.fixtureId,
-        fileName: fixture.fileName,
-        sourceType: fixture.fileName.endsWith(".jpg") ? "image" : "pdf",
-        pageCount: fixture.workspace.subtitle.includes("2 pages") ? 2 : 1,
-        hasSchema: fixture.mode === "schema_workflow"
+        run_id: created.payload.run_id,
+        document_id: fixture.fixtureId,
+        file_name: fixture.fileName,
+        source_type: fixture.fileName.endsWith(".jpg") ? "image" : "pdf",
+        page_count: fixture.workspace.subtitle.includes("2 pages") ? 2 : 1,
+        has_schema: fixture.mode === "schema_workflow"
+      });
+
+      return executed.payload;
+    },
+    async processDocument(document) {
+      const created = await invokeTauri<{ payload: RuntimeRunRecord }>("create_run", {
+        document_id: document.document_id,
+        mode: document.mode_hint,
+        pipeline_id: `local_${document.mode_hint}`,
+        pipeline_version: "0.1.0"
+      });
+
+      const executed = await invokeTauri<{ payload: RuntimeExecutionResult }>("execute_run", {
+        run_id: created.payload.run_id,
+        document_id: document.document_id,
+        file_name: document.file_name,
+        source_type: document.source_type,
+        page_count: document.page_count,
+        has_schema: document.has_schema
       });
 
       return executed.payload;
@@ -358,30 +472,30 @@ function createTauriGateway(): DesktopGateway {
     async listReviewTasks(runId) {
       const response = await invokeTauri<{
         payload: Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">;
-      }>("list_review_tasks", { runId });
+      }>("list_review_tasks", { run_id: runId });
       return response.payload;
     },
     async applyFieldEdit(runId, fieldId, newValue, note) {
       const response = await invokeTauri<{ payload: RuntimeExecutionResult }>("apply_field_edit", {
-        runId,
-        fieldId,
-        newValue,
+        run_id: runId,
+        field_id: fieldId,
+        new_value: newValue,
         note
       });
       return response.payload;
     },
     async approveRun(runId) {
-      const approved = await invokeTauri<{ payload: RuntimeExecutionResult }>("approve_run", { runId });
+      const approved = await invokeTauri<{ payload: RuntimeExecutionResult }>("approve_run", { run_id: runId });
       return approved.payload;
     },
     async rejectRun(runId, note) {
-      const rejected = await invokeTauri<{ payload: RuntimeExecutionResult }>("reject_run", { runId, note });
+      const rejected = await invokeTauri<{ payload: RuntimeExecutionResult }>("reject_run", { run_id: runId, note });
       return rejected.payload;
     },
     async exportRun(runId, exportTarget) {
       const exported = await invokeTauri<{ payload: { artifact_ref: string; run: RuntimeRunRecord } }>("export_run", {
-        runId,
-        exportTarget
+        run_id: runId,
+        export_target: exportTarget
       });
       return exported.payload;
     }
