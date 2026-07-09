@@ -1,0 +1,17 @@
+{
+  "name": "@dossier/benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/run_benchmark.js",
+  "types": "./dist/run_benchmark.d.ts",
+  "scripts": {
+    "bench": "pnpm build && node ./dist/run_benchmark.js",
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dossier/sample-data": "workspace:*"
+  }
+}

@@ -8,7 +8,7 @@ import { WorkspacePage } from "../src/features/workspace/WorkspacePage.js";
 describe("workspace shell", () => {
   it("renders the dossier shell and workspace layout", () => {
     render(
-      <MemoryRouter initialEntries={["/workspace"]}>
+      <MemoryRouter initialEntries={["/workspace?fixture=finance_risk_invoice"]}>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/workspace" element={<WorkspacePage />} />
@@ -23,5 +23,7 @@ describe("workspace shell", () => {
     expect(screen.getByText("Extracted Fields")).toBeInTheDocument();
     expect(screen.getByText("Actions")).toBeInTheDocument();
     expect(screen.getByText("Risk & Validation")).toBeInTheDocument();
+    expect(screen.getByText("RISK-2026-0021.pdf")).toBeInTheDocument();
+    expect(screen.getByText("finance · schema_workflow · risk")).toBeInTheDocument();
   });
 });

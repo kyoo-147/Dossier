@@ -41,6 +41,9 @@ importers:
       '@dossier/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@dossier/sample-data':
+        specifier: workspace:*
+        version: link:../../packages/sample-data
       '@dossier/ui-kit':
         specifier: workspace:*
         version: link:../../packages/ui-kit
@@ -63,6 +66,12 @@ importers:
 
   packages/contracts: {}
 
+  packages/domain-packs:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/pipeline-core:
     dependencies:
       '@dossier/contracts':
@@ -78,11 +87,19 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/sample-data: {}
+
   packages/ui-kit:
     dependencies:
       react:
         specifier: ^19.1.1
         version: 19.2.7
+
+  tooling/benchmark:
+    dependencies:
+      '@dossier/sample-data':
+        specifier: workspace:*
+        version: link:../../packages/sample-data
 
 packages:
 

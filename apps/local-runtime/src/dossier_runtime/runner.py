@@ -4,12 +4,15 @@ import uuid
 from pathlib import Path
 
 from .artifacts import ArtifactStore
+from .extraction import extract_fields
 from .exporters import export_connector_stub, export_json_payload, export_markdown_payload
 from .job_store import JobStore
 from .models import RunRecord, utc_now_iso
 from .provider_registry import ProviderDefinition, ProviderRegistry
 from .providers import layout_provider, ocr_printed_provider, probe_provider, table_parser_provider
+from .repair import run_repair_pass
 from .review import ReviewTaskRecord
+from .validation import validate_fields
 
 
 class RuntimeRunner:
@@ -64,8 +67,11 @@ class RuntimeRunner:
       ocr_result = self.provider_registry.get_by_type("ocr_printed").handler(document_payload)
       table_result = self.provider_registry.get_by_type("table_parser").handler(document_payload)
 
-      fields = self._extract_fields(document_payload, ocr_result)
-      review_tasks = self._maybe_create_review_tasks(run, document_payload, fields)
+      fields = extract_fields(document_payload, ocr_result, table_result)
+      warnings = validate_fields(document_payload, fields, table_result)
+      repair_result = run_repair_pass(fields, warnings)
+      final_warnings = repair_result["remaining_warnings"]
+      review_tasks = self._maybe_create_review_tasks(run, document_payload, final_warnings)
       next_status = "needs_review" if review_tasks else "completed"
       run = self.update_status(run_id, next_status, terminal=not review_tasks)
 
@@ -76,6 +82,8 @@ class RuntimeRunner:
         "ocr": ocr_result,
         "table": table_result,
         "fields": fields,
+        "warnings": final_warnings,
+        "repair": repair_result,
         "review_tasks": [self._serialize_review_task(task) for task in review_tasks],
       }
       self._run_outputs[run_id] = result
@@ -140,43 +148,10 @@ class RuntimeRunner:
         }
       )
 
-    def _extract_fields(self, document_payload: dict, ocr_result: dict) -> list[dict]:
-      file_name = document_payload.get("file_name", "").lower()
-      if "invoice" in file_name or "hoa" in file_name:
-        return [
-          {
-            "field_id": "fld_invoice_number",
-            "schema_key": "invoice.number",
-            "label": "Invoice Number",
-            "observed_value": "000789",
-            "normalized_value": "000789",
-            "status": "approved",
-          },
-          {
-            "field_id": "fld_total_amount",
-            "schema_key": "invoice.total_amount",
-            "label": "Total Amount",
-            "observed_value": "7590000",
-            "normalized_value": "7590000",
-            "status": "warning" if document_payload.get("has_schema") else "approved",
-          },
-        ]
-
-      return [
-        {
-          "field_id": "fld_text",
-          "schema_key": "document.text",
-          "label": "Detected Text",
-          "observed_value": ocr_result["text"],
-          "normalized_value": ocr_result["text"],
-          "status": "approved",
-        }
-      ]
-
     def _maybe_create_review_tasks(
-      self, run: RunRecord, document_payload: dict, fields: list[dict]
+      self, run: RunRecord, document_payload: dict, warnings: list[dict]
     ) -> list[ReviewTaskRecord]:
-      if run.mode != "schema_workflow":
+      if run.mode != "schema_workflow" and not warnings:
         self._review_tasks[run.run_id] = []
         return []
 
@@ -184,7 +159,7 @@ class RuntimeRunner:
         ReviewTaskRecord(
           review_task_id=f"review_{uuid.uuid4().hex[:10]}",
           run_id=run.run_id,
-          reason_codes=["TOTAL_SUM_MISMATCH"] if document_payload.get("has_schema") else ["LOW_CONFIDENCE"],
+          reason_codes=[warning["code"] for warning in warnings] or ["APPROVAL_REQUIRED"],
           priority="medium",
           status="open",
           assigned_to=None,

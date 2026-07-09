@@ -10,7 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@dossier/ui-kit": path.resolve(rootDir, "packages/ui-kit/src/index.ts"),
-      "@dossier/contracts": path.resolve(rootDir, "packages/contracts/src/index.ts")
+      "@dossier/contracts": path.resolve(rootDir, "packages/contracts/src/index.ts"),
+      "@dossier/sample-data": path.resolve(rootDir, "packages/sample-data/src/index.ts")
     }
   },
   test: {

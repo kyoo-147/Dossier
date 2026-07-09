@@ -5,6 +5,7 @@
   "packageManager": "pnpm@11.7.0",
   "type": "module",
   "scripts": {
+    "benchmark": "pnpm --filter @dossier/benchmark bench",
     "build": "pnpm -r --if-present build",
     "check": "pnpm -r --if-present check",
     "desktop": "pnpm --filter @dossier/desktop dev",

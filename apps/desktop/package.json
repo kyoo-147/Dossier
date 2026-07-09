@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@dossier/contracts": "workspace:*",
+    "@dossier/sample-data": "workspace:*",
     "@dossier/ui-kit": "workspace:*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "paths": {
+      "@dossier/sample-data": ["../../packages/sample-data/dist/index.d.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}

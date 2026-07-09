@@ -1,9 +1,14 @@
 import { ActionPanel } from "./ActionPanel.js";
 import { FieldTable } from "./FieldTable.js";
 import { RiskPanel } from "./RiskPanel.js";
-import { sampleWorkspaceData } from "./sampleWorkspaceData.js";
+import { useSearchParams } from "react-router-dom";
+import { resolveWorkspaceFixture } from "./workspaceFixtures.js";
 
 export function WorkspacePage() {
+  const [searchParams] = useSearchParams();
+  const fixture = resolveWorkspaceFixture(searchParams.get("fixture"));
+  const workspace = fixture.workspace;
+
   return (
     <div
       style={{
@@ -14,8 +19,11 @@ export function WorkspacePage() {
       }}
     >
       <section style={{ borderRight: "1px solid #e5e7eb", padding: 16 }}>
-        <div style={{ fontWeight: 600, marginBottom: 12 }}>{sampleWorkspaceData.documentTitle}</div>
-        <div style={{ color: "#6b7280", marginBottom: 16 }}>{sampleWorkspaceData.subtitle}</div>
+        <div style={{ fontWeight: 600, marginBottom: 12 }}>{workspace.documentTitle}</div>
+        <div style={{ color: "#6b7280", marginBottom: 8 }}>{workspace.subtitle}</div>
+        <div style={{ color: "#44403c", fontSize: 13, marginBottom: 16 }}>
+          {fixture.industry} · {fixture.mode} · {fixture.bucket}
+        </div>
         <div style={{ display: "grid", gap: 12 }}>
           <div style={{ border: "1px solid #cbd5e1", padding: 12, height: 240 }}>Page 1 thumbnail</div>
           <div style={{ border: "1px solid #e5e7eb", padding: 12, height: 240 }}>Page 2 thumbnail</div>
@@ -27,8 +35,8 @@ export function WorkspacePage() {
         </div>
       </section>
       <section style={{ padding: 16, display: "grid", gap: 16 }}>
-        <FieldTable fields={sampleWorkspaceData.fields} />
-        <RiskPanel riskScore={sampleWorkspaceData.riskScore} riskSummary={sampleWorkspaceData.riskSummary} />
+        <FieldTable fields={workspace.fields} />
+        <RiskPanel riskScore={workspace.riskScore} riskSummary={workspace.riskSummary} />
         <ActionPanel />
       </section>
       <section
@@ -41,7 +49,7 @@ export function WorkspacePage() {
       >
         <div style={{ fontWeight: 600, marginBottom: 12 }}>Agent logs / self-correction / history</div>
         <div style={{ display: "grid", gap: 8 }}>
-          {sampleWorkspaceData.logs.map((entry) => (
+          {workspace.logs.map((entry) => (
             <div key={entry}>{entry}</div>
           ))}
         </div>

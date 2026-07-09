@@ -17,6 +17,9 @@
     "paths": {
       "@dossier/contracts": ["packages/contracts/src/index.ts"],
       "@dossier/pipeline-core": ["packages/pipeline-core/src/index.ts"],
+      "@dossier/provider-sdk": ["packages/provider-sdk/src/index.ts"],
+      "@dossier/domain-packs": ["packages/domain-packs/src/index.ts"],
+      "@dossier/sample-data": ["packages/sample-data/src/index.ts"],
       "@dossier/ui-kit": ["packages/ui-kit/src/index.ts"]
     }
   }
