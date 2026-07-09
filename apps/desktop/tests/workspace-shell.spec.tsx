@@ -21,5 +21,7 @@ describe("workspace shell", () => {
     expect(screen.getByText("Agentic Document Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Document canvas")).toBeInTheDocument();
     expect(screen.getByText("Extracted Fields")).toBeInTheDocument();
+    expect(screen.getByText("Actions")).toBeInTheDocument();
+    expect(screen.getByText("Risk & Validation")).toBeInTheDocument();
   });
 });

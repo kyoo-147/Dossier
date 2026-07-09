@@ -4,8 +4,24 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 from .runner import RuntimeRunner
+
+
+class CreateRunRequest(BaseModel):
+    document_id: str
+    mode: str
+    pipeline_id: str
+    pipeline_version: str
+
+
+class ExecuteRunRequest(BaseModel):
+    document_id: str
+    file_name: str
+    source_type: str = "pdf"
+    page_count: int = 1
+    has_schema: bool = False
 
 
 def create_app(state_root: Path | None = None) -> FastAPI:
@@ -21,5 +37,27 @@ def create_app(state_root: Path | None = None) -> FastAPI:
         "status": "ok",
         "providers": runner.provider_registry.list_ids(),
       }
+
+    @app.post("/runs")
+    def create_run(request: CreateRunRequest) -> dict[str, object]:
+      run = runner.create_run(
+        request.document_id,
+        request.mode,
+        request.pipeline_id,
+        request.pipeline_version,
+      )
+      return runner._serialize_run(run)
+
+    @app.post("/runs/{run_id}/execute")
+    def execute_run(run_id: str, request: ExecuteRunRequest) -> dict[str, object]:
+      return runner.execute_run(run_id, request.model_dump())
+
+    @app.post("/runs/{run_id}/approve")
+    def approve_run(run_id: str) -> dict[str, object]:
+      return runner.approve_run(run_id, "desktop-user")
+
+    @app.post("/runs/{run_id}/export/{export_target}")
+    def export_run(run_id: str, export_target: str) -> dict[str, object]:
+      return runner.export_run(run_id, export_target)
 
     return app
