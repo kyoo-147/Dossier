@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-initialize-workspace"
+description = "Enables the initialize_workspace command without any pre-configured scope."
+commands.allow = ["initialize_workspace"]
+
+[[permission]]
+identifier = "deny-initialize-workspace"
+description = "Denies the initialize_workspace command without any pre-configured scope."
+commands.deny = ["initialize_workspace"]

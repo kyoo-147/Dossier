@@ -1,0 +1,24 @@
+mod commands;
+mod events;
+pub mod runtime_gateway;
+mod state;
+pub mod storage;
+
+use runtime_gateway::RuntimeGateway;
+use state::AppState;
+use storage::runtime_root_from_manifest_dir;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let runtime_gateway = RuntimeGateway::new(runtime_root_from_manifest_dir());
+
+    tauri::Builder::default()
+        .manage(AppState::new(runtime_gateway))
+        .invoke_handler(tauri::generate_handler![
+            commands::get_kernel_status,
+            commands::initialize_workspace,
+            commands::get_runtime_bootstrap
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running Dossier desktop kernel");
+}
