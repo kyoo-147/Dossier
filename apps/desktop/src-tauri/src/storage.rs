@@ -51,8 +51,8 @@ pub fn list_documents(workspace_root: &Path) -> std::io::Result<Vec<DesktopDocum
     }
 
     let raw = fs::read_to_string(registry_path)?;
-    let parsed = serde_json::from_str::<Vec<DesktopDocumentRecord>>(&raw)
-        .map_err(std::io::Error::other)?;
+    let parsed =
+        serde_json::from_str::<Vec<DesktopDocumentRecord>>(&raw).map_err(std::io::Error::other)?;
     Ok(parsed)
 }
 
@@ -109,7 +109,9 @@ pub fn copy_artifact_to_destination(
         .split('/')
         .next_back()
         .filter(|item| !item.is_empty())
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid artifact ref"))?;
+        .ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid artifact ref")
+        })?;
     let source_path = workspace_root
         .join(".dossier")
         .join("state")
@@ -132,7 +134,10 @@ pub fn copy_artifact_to_destination(
     Ok(destination_path.display().to_string())
 }
 
-fn save_documents(workspace_root: &Path, documents: &[DesktopDocumentRecord]) -> std::io::Result<()> {
+fn save_documents(
+    workspace_root: &Path,
+    documents: &[DesktopDocumentRecord],
+) -> std::io::Result<()> {
     let registry_path = documents_registry_path(workspace_root);
     if let Some(parent) = registry_path.parent() {
         fs::create_dir_all(parent)?;

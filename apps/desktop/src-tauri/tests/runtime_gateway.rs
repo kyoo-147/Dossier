@@ -10,7 +10,10 @@ fn runtime_gateway_builds_python_bootstrap() {
     let bootstrap = gateway.bootstrap();
 
     assert_eq!(bootstrap.command, "python");
-    assert_eq!(bootstrap.args, vec!["-m".to_string(), "dossier_runtime".to_string()]);
+    assert_eq!(
+        bootstrap.args,
+        vec!["-m".to_string(), "dossier_runtime".to_string()]
+    );
 }
 
 #[test]
@@ -20,7 +23,9 @@ fn workspace_initializer_creates_dossier_state_tree() {
 
     assert!(temp_dir.path().join(".dossier/state").exists());
     assert!(temp_dir.path().join(".dossier/artifacts").exists());
-    assert!(paths.state_dir.ends_with(".dossier\\state") || paths.state_dir.ends_with(".dossier/state"));
+    assert!(
+        paths.state_dir.ends_with(".dossier\\state") || paths.state_dir.ends_with(".dossier/state")
+    );
 }
 
 #[test]
@@ -48,7 +53,8 @@ fn artifact_copy_saves_to_requested_destination() {
 
     let artifact_dir = temp_dir.path().join(".dossier/state/runtime/artifacts");
     std::fs::create_dir_all(&artifact_dir).expect("artifact dir should exist");
-    std::fs::write(artifact_dir.join("demo.json"), br#"{"ok":true}"#).expect("artifact should be written");
+    std::fs::write(artifact_dir.join("demo.json"), br#"{"ok":true}"#)
+        .expect("artifact should be written");
 
     let destination = temp_dir.path().join("exports/final.json");
     let saved = copy_artifact_to_destination(temp_dir.path(), "artifact://demo.json", &destination)

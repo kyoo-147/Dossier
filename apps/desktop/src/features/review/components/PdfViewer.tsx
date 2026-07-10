@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
+// @ts-ignore
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 // Configure worker
@@ -16,12 +17,12 @@ export function PdfViewer({ url, pageNumber = 1, scale = 1.0 }: PdfViewerProps) 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let renderTask: pdfjsLib.RenderTask | null = null;
+    let renderTask: any = null;
     let isMounted = true;
 
     const renderPage = async () => {
       try {
-        const loadingTask = pdfjsLib.getDocument(url);
+        const loadingTask = pdfjsLib.getDocument({ url });
         const pdf = await loadingTask.promise;
         
         if (!isMounted) return;
@@ -46,6 +47,7 @@ export function PdfViewer({ url, pageNumber = 1, scale = 1.0 }: PdfViewerProps) 
           viewport: viewport,
         };
 
+        // @ts-ignore
         renderTask = page.render(renderContext);
         await renderTask.promise;
       } catch (err: any) {
