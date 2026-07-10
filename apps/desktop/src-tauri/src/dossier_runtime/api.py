@@ -38,16 +38,55 @@ async def create_run(payload: RunPayload):
     logger.info(f"Creating run for document {payload.document_id}")
     return {"run_id": f"run_{payload.document_id}_{payload.pipeline_id}"}
 
+from .store import import_file, get_artifact_path
+from .adapters import DeterministicRulesAdapter
+
 async def mock_execute_task(run_id: str, payload: ExecutePayload):
     logger.info(f"Starting long running execution for {run_id}")
-    await asyncio.sleep(2)
-    logger.info(f"Execution finished for {run_id}")
+    try:
+        # Import file to immutable store
+        # Here we mock it by assuming payload.file_name is an absolute path or we just use a dummy hash
+        # For a real integration, the client uploads or provides a local path.
+        artifact_id = f"mock_hash_{payload.document_id}.pdf"
+        logger.info(f"Artifact stored as {artifact_id}")
+
+        adapter = DeterministicRulesAdapter()
+        result = await adapter.process(artifact_id, {})
+        
+        logger.info(f"Execution finished for {run_id}. Extracted {len(result['fields'])} fields.")
+    except Exception as e:
+        logger.error(f"Execution failed for {run_id}: {e}")
 
 @app.post("/runs/{run_id}/execute")
 async def execute_run(run_id: str, payload: ExecutePayload, background_tasks: BackgroundTasks):
     logger.info(f"Queuing execution for {run_id}")
     background_tasks.add_task(mock_execute_task, run_id, payload)
     return {"status": "queued"}
+
+from fastapi.responses import FileResponse
+
+@app.get("/artifacts/{artifact_id}")
+async def get_artifact(artifact_id: str):
+    path = get_artifact_path(artifact_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return FileResponse(path)
+
+@app.get("/runs/{run_id}/status")
+async def get_run_status(run_id: str):
+    # In a real app we'd query the DB for the run and its status, progress, etc.
+    return {
+        "run_id": run_id,
+        "status": "completed",
+        "progress": 100,
+        "error": None
+    }
+
+@app.post("/runs/{run_id}/cancel")
+async def cancel_run(run_id: str):
+    logger.info(f"Cancelling run {run_id}")
+    # In a real app we'd signal the background task to cancel
+    return {"status": "cancelled"}
 
 @app.post("/runs/{run_id}/approve")
 async def approve_run(run_id: str):
