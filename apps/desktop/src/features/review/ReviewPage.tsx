@@ -8,6 +8,7 @@ import { WorkbenchShell } from "../../app/layout/WorkbenchShell.js";
 import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { resolveWorkspaceFixture, reviewFixtures } from "../workspace/workspaceFixtures.js";
 import { ReviewInspector } from "./ReviewInspector.js";
+import { PdfViewer } from "./components/PdfViewer.js";
 
 export function ReviewPage() {
   const [searchParams] = useSearchParams();
@@ -55,7 +56,11 @@ export function ReviewPage() {
           toolbar={<><div className="toolbar-group"><button>↖</button><button>✋</button></div><div className="toolbar-group toolbar-zoom"><button>−</button><strong>114%</strong><button>＋</button></div><div className="toolbar-spacer" /><button>▣</button></>}
           modes={<><button className="viewer-mode viewer-mode--active">▧ Evidence</button><button className="viewer-mode">◎ OCR</button><button className="viewer-mode">▦ Fields</button><button className="viewer-mode">▧ Risk</button><span /><button className="viewer-mode">Fit⌄</button></>}
         >
-          <article className="document-paper review-document"><div className="review-document__title">DOCUMENT REVIEW COPY</div><div className="review-document__meta">{title}<br />Evidence-linked extraction · Human approval required</div><div className="review-form-block"><strong>Document identifier</strong><span>{session?.result?.run.run_id ?? "Awaiting pipeline result"}</span></div><div className="review-form-block review-form-block--warn"><strong>Detected review reason</strong><span>{warnings[0] ?? "No active warning"}</span></div><div className="review-sheet-grid">{Array.from({ length: 18 }, (_, index) => <span key={index} />)}</div><div className="review-signature"><span>Reviewer notes</span><span>Approval signature</span></div><span className="review-focus-box" /></article>
+          {session?.result?.run.run_id ? (
+            <PdfViewer url={`http://127.0.0.1:47821/artifacts/mock_hash_${document?.document_id ?? fixture?.fixtureId}.pdf`} />
+          ) : (
+            <article className="document-paper review-document"><div className="review-document__title">DOCUMENT REVIEW COPY</div><div className="review-document__meta">{title}<br />Evidence-linked extraction · Human approval required</div><div className="review-form-block"><strong>Document identifier</strong><span>{session?.result?.run.run_id ?? "Awaiting pipeline result"}</span></div><div className="review-form-block review-form-block--warn"><strong>Detected review reason</strong><span>{warnings[0] ?? "No active warning"}</span></div><div className="review-sheet-grid">{Array.from({ length: 18 }, (_, index) => <span key={index} />)}</div><div className="review-signature"><span>Reviewer notes</span><span>Approval signature</span></div><span className="review-focus-box" /></article>
+          )}
         </DocumentViewerShell>
       }
       inspector={

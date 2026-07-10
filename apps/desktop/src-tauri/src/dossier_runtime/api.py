@@ -5,7 +5,7 @@ from loguru import logger
 import asyncio
 from typing import Optional
 
-from .database import init_db, get_db
+from .database import init_db, get_db, AsyncSessionLocal, Observation
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -91,6 +91,11 @@ async def cancel_run(run_id: str):
 @app.post("/runs/{run_id}/approve")
 async def approve_run(run_id: str):
     logger.info(f"Approving run {run_id}")
+    # Create audit record
+    async with AsyncSessionLocal() as session:
+        audit = Observation(run_id=run_id, event_type="approval", payload={"action": "approve"})
+        session.add(audit)
+        await session.commit()
     return {"status": "approved"}
 
 class RejectPayload(BaseModel):
@@ -99,6 +104,10 @@ class RejectPayload(BaseModel):
 @app.post("/runs/{run_id}/reject")
 async def reject_run(run_id: str, payload: RejectPayload):
     logger.info(f"Rejecting run {run_id} with note: {payload.note}")
+    async with AsyncSessionLocal() as session:
+        audit = Observation(run_id=run_id, event_type="rejection", payload={"action": "reject", "note": payload.note})
+        session.add(audit)
+        await session.commit()
     return {"status": "rejected"}
 
 @app.get("/runs/{run_id}/review")
@@ -122,6 +131,10 @@ class EditPayload(BaseModel):
 @app.post("/runs/{run_id}/review/edit")
 async def apply_field_edit(run_id: str, payload: EditPayload):
     logger.info(f"Editing field {payload.field_id} to {payload.new_value}")
+    async with AsyncSessionLocal() as session:
+        audit = Observation(run_id=run_id, event_type="edit_candidate", payload={"field": payload.field_id, "new_value": payload.new_value, "note": payload.note})
+        session.add(audit)
+        await session.commit()
     return {"status": "edited"}
 
 @app.post("/runs/{run_id}/export/{export_target}")
