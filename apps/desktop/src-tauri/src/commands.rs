@@ -1,13 +1,31 @@
 use crate::runtime_gateway::{RuntimeBootstrap, RuntimeStatus};
 use crate::state::AppState;
 use crate::storage::{
-    copy_artifact_to_destination, initialize_workspace as initialize_workspace_dirs, list_documents as load_documents,
-    register_document as create_document_record, DesktopDocumentRecord, WorkspacePaths,
+    DesktopDocumentRecord, WorkspacePaths, copy_artifact_to_destination,
+    initialize_workspace as initialize_workspace_dirs, list_documents as load_documents,
+    register_document as create_document_record,
 };
+use keyring::Entry;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::PathBuf;
 use tauri::State;
+
+#[tauri::command]
+pub fn set_api_key(service: String, key: String) -> Result<(), String> {
+    let entry = Entry::new("Dossier", &service).map_err(|e| e.to_string())?;
+    entry.set_password(&key).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_api_key(service: String) -> Result<Option<String>, String> {
+    let entry = Entry::new("Dossier", &service).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pwd) => Ok(Some(pwd)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct KernelStatusResponse {
@@ -89,8 +107,14 @@ pub fn register_document(
     }
     .ok_or("workspace must be initialized before registering documents")?;
 
-    create_document_record(&workspace_root, &PathBuf::from(source_path), &mode_hint, page_count, has_schema)
-        .map_err(|error| error.to_string())
+    create_document_record(
+        &workspace_root,
+        &PathBuf::from(source_path),
+        &mode_hint,
+        page_count,
+        has_schema,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -100,7 +124,9 @@ pub fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, Strin
             .kernel
             .lock()
             .map_err(|_| "kernel state is poisoned".to_string())?;
-        return Ok(state.runtime_gateway.status(kernel.workspace_root.as_deref()));
+        return Ok(state
+            .runtime_gateway
+            .status(kernel.workspace_root.as_deref()));
     }
 
     let workspace_paths = {
@@ -111,7 +137,8 @@ pub fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, Strin
         kernel.workspace_paths.clone()
     };
 
-    let workspace_paths = workspace_paths.ok_or("workspace must be initialized before runtime start")?;
+    let workspace_paths =
+        workspace_paths.ok_or("workspace must be initialized before runtime start")?;
     let state_dir = PathBuf::from(&workspace_paths.state_dir).join("runtime");
 
     let mut runtime_process = state
@@ -138,7 +165,9 @@ pub fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, Strin
         .kernel
         .lock()
         .map_err(|_| "kernel state is poisoned".to_string())?;
-    Ok(state.runtime_gateway.status(kernel.workspace_root.as_deref()))
+    Ok(state
+        .runtime_gateway
+        .status(kernel.workspace_root.as_deref()))
 }
 
 #[tauri::command]
@@ -185,7 +214,10 @@ pub fn execute_run(
 }
 
 #[tauri::command]
-pub fn approve_run(run_id: String, state: State<'_, AppState>) -> Result<RuntimeActionResponse, String> {
+pub fn approve_run(
+    run_id: String,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
         payload: state.runtime_gateway.approve_run(&run_id)?,
     })
@@ -203,7 +235,10 @@ pub fn reject_run(
 }
 
 #[tauri::command]
-pub fn list_review_tasks(run_id: String, state: State<'_, AppState>) -> Result<RuntimeActionResponse, String> {
+pub fn list_review_tasks(
+    run_id: String,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
         payload: state.runtime_gateway.list_review_tasks(&run_id)?,
     })
@@ -218,9 +253,12 @@ pub fn apply_field_edit(
     state: State<'_, AppState>,
 ) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
-        payload: state
-            .runtime_gateway
-            .apply_field_edit(&run_id, &field_id, &new_value, note.as_deref())?,
+        payload: state.runtime_gateway.apply_field_edit(
+            &run_id,
+            &field_id,
+            &new_value,
+            note.as_deref(),
+        )?,
     })
 }
 
@@ -250,9 +288,12 @@ pub fn save_artifact_to_path(
     }
     .ok_or("workspace must be initialized before saving artifacts")?;
 
-    let saved_path =
-        copy_artifact_to_destination(&workspace_root, &artifact_ref, &PathBuf::from(destination_path))
-            .map_err(|error| error.to_string())?;
+    let saved_path = copy_artifact_to_destination(
+        &workspace_root,
+        &artifact_ref,
+        &PathBuf::from(destination_path),
+    )
+    .map_err(|error| error.to_string())?;
 
     Ok(ArtifactSaveResponse { saved_path })
 }
@@ -263,7 +304,9 @@ pub fn get_kernel_status(state: State<'_, AppState>) -> Result<KernelStatusRespo
         .kernel
         .lock()
         .map_err(|_| "kernel state is poisoned".to_string())?;
-    let runtime = state.runtime_gateway.status(kernel.workspace_root.as_deref());
+    let runtime = state
+        .runtime_gateway
+        .status(kernel.workspace_root.as_deref());
 
     Ok(KernelStatusResponse {
         workspace: kernel.workspace_paths.clone(),
