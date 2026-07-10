@@ -118,15 +118,19 @@ pub fn register_document(
 }
 
 #[tauri::command]
-pub fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, String> {
-    if state.runtime_gateway.health_check().is_ok() {
-        let kernel = state
-            .kernel
-            .lock()
-            .map_err(|_| "kernel state is poisoned".to_string())?;
+pub async fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, String> {
+    if state.runtime_gateway.health_check().await.is_ok() {
+        let workspace_root = {
+            let kernel = state
+                .kernel
+                .lock()
+                .map_err(|_| "kernel state is poisoned".to_string())?;
+            kernel.workspace_root.clone()
+        };
         return Ok(state
             .runtime_gateway
-            .status(kernel.workspace_root.as_deref()));
+            .status(workspace_root.as_deref())
+            .await);
     }
 
     let workspace_paths = {
@@ -141,37 +145,42 @@ pub fn ensure_runtime(state: State<'_, AppState>) -> Result<RuntimeStatus, Strin
         workspace_paths.ok_or("workspace must be initialized before runtime start")?;
     let state_dir = PathBuf::from(&workspace_paths.state_dir).join("runtime");
 
-    let mut runtime_process = state
-        .runtime_process
-        .lock()
-        .map_err(|_| "runtime state is poisoned".to_string())?;
+    {
+        let mut runtime_process = state
+            .runtime_process
+            .lock()
+            .map_err(|_| "runtime state is poisoned".to_string())?;
 
-    let should_spawn = match runtime_process.child.as_mut() {
-        Some(child) => child
-            .try_wait()
-            .map_err(|error| format!("failed to inspect runtime process: {error}"))?
-            .is_some(),
-        None => true,
+        let should_spawn = match runtime_process.child.as_mut() {
+            Some(child) => child
+                .try_wait()
+                .map_err(|error| format!("failed to inspect runtime process: {error}"))?
+                .is_some(),
+            None => true,
+        };
+
+        if should_spawn {
+            runtime_process.child = Some(state.runtime_gateway.spawn_runtime(&state_dir)?);
+        }
+    } // drop runtime_process guard here
+
+    state.runtime_gateway.wait_until_ready().await?;
+
+    let workspace_root = {
+        let kernel = state
+            .kernel
+            .lock()
+            .map_err(|_| "kernel state is poisoned".to_string())?;
+        kernel.workspace_root.clone()
     };
-
-    if should_spawn {
-        runtime_process.child = Some(state.runtime_gateway.spawn_runtime(&state_dir)?);
-    }
-
-    drop(runtime_process);
-    state.runtime_gateway.wait_until_ready()?;
-
-    let kernel = state
-        .kernel
-        .lock()
-        .map_err(|_| "kernel state is poisoned".to_string())?;
     Ok(state
         .runtime_gateway
-        .status(kernel.workspace_root.as_deref()))
+        .status(workspace_root.as_deref())
+        .await)
 }
 
 #[tauri::command]
-pub fn create_run(
+pub async fn create_run(
     document_id: String,
     mode: String,
     pipeline_id: String,
@@ -186,12 +195,12 @@ pub fn create_run(
     });
 
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.create_run(&payload)?,
+        payload: state.runtime_gateway.create_run(&payload).await?,
     })
 }
 
 #[tauri::command]
-pub fn execute_run(
+pub async fn execute_run(
     run_id: String,
     document_id: String,
     file_name: String,
@@ -209,43 +218,43 @@ pub fn execute_run(
     });
 
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.execute_run(&run_id, &payload)?,
+        payload: state.runtime_gateway.execute_run(&run_id, &payload).await?,
     })
 }
 
 #[tauri::command]
-pub fn approve_run(
+pub async fn approve_run(
     run_id: String,
     state: State<'_, AppState>,
 ) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.approve_run(&run_id)?,
+        payload: state.runtime_gateway.approve_run(&run_id).await?,
     })
 }
 
 #[tauri::command]
-pub fn reject_run(
+pub async fn reject_run(
     run_id: String,
     note: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.reject_run(&run_id, note.as_deref())?,
+        payload: state.runtime_gateway.reject_run(&run_id, note.as_deref()).await?,
     })
 }
 
 #[tauri::command]
-pub fn list_review_tasks(
+pub async fn list_review_tasks(
     run_id: String,
     state: State<'_, AppState>,
 ) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.list_review_tasks(&run_id)?,
+        payload: state.runtime_gateway.list_review_tasks(&run_id).await?,
     })
 }
 
 #[tauri::command]
-pub fn apply_field_edit(
+pub async fn apply_field_edit(
     run_id: String,
     field_id: String,
     new_value: String,
@@ -258,18 +267,18 @@ pub fn apply_field_edit(
             &field_id,
             &new_value,
             note.as_deref(),
-        )?,
+        ).await?,
     })
 }
 
 #[tauri::command]
-pub fn export_run(
+pub async fn export_run(
     run_id: String,
     export_target: String,
     state: State<'_, AppState>,
 ) -> Result<RuntimeActionResponse, String> {
     Ok(RuntimeActionResponse {
-        payload: state.runtime_gateway.export_run(&run_id, &export_target)?,
+        payload: state.runtime_gateway.export_run(&run_id, &export_target).await?,
     })
 }
 
@@ -306,17 +315,22 @@ pub async fn install_provider(provider_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_kernel_status(state: State<'_, AppState>) -> Result<KernelStatusResponse, String> {
-    let kernel = state
-        .kernel
-        .lock()
-        .map_err(|_| "kernel state is poisoned".to_string())?;
+pub async fn get_kernel_status(state: State<'_, AppState>) -> Result<KernelStatusResponse, String> {
+    let (workspace, workspace_root) = {
+        let kernel = state
+            .kernel
+            .lock()
+            .map_err(|_| "kernel state is poisoned".to_string())?;
+        (kernel.workspace_paths.clone(), kernel.workspace_root.clone())
+    };
+    
     let runtime = state
         .runtime_gateway
-        .status(kernel.workspace_root.as_deref());
+        .status(workspace_root.as_deref())
+        .await;
 
     Ok(KernelStatusResponse {
-        workspace: kernel.workspace_paths.clone(),
+        workspace,
         runtime,
     })
 }
