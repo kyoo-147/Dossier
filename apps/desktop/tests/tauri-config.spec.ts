@@ -10,7 +10,8 @@ describe("tauri desktop config", () => {
     };
 
     expect(config.build.beforeBuildCommand).toContain("pnpm --dir ../.. build");
-    expect(config.build.beforeDevCommand).toContain("pnpm --dir ../.. dev");
+    expect(config.build.beforeDevCommand).toContain("pnpm --dir ../.. --filter @dossier/desktop dev");
+    expect(config.build.beforeDevCommand).toContain("--host 127.0.0.1 --port 5173");
   });
 
   it("declares explicit desktop bundle icons for native packaging", () => {

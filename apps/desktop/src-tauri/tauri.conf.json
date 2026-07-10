@@ -5,7 +5,7 @@
   "identifier": "com.dossier.desktop",
   "build": {
     "beforeBuildCommand": "pnpm --dir ../.. build",
-    "beforeDevCommand": "pnpm --dir ../.. dev -- --host 127.0.0.1 --port 5173",
+    "beforeDevCommand": "pnpm --dir ../.. --filter @dossier/desktop dev --host 127.0.0.1 --port 5173",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist"
   },

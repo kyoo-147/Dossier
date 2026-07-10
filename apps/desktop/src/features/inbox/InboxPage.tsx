@@ -4,9 +4,7 @@ import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { FixtureSummaryCard } from "../workspace/FixtureSummaryCard.js";
 import { demoFixtures } from "../workspace/workspaceFixtures.js";
 
-function describeDesktopMode(mode: "browser-mock" | "tauri-live"): string {
-  return mode === "tauri-live" ? "desktop runtime" : "desktop simulator";
-}
+function describeDesktopMode(mode: "browser-mock" | "tauri-live") { return mode === "tauri-live" ? "desktop runtime" : "desktop simulator"; }
 
 export function InboxPage() {
   const { documents, registerDocument, pickDocumentSource, mode } = useRuntimeContext();
@@ -14,110 +12,15 @@ export function InboxPage() {
   const [modeHint, setModeHint] = useState("generic_parse");
   const [pageCount, setPageCount] = useState("1");
   const [hasSchema, setHasSchema] = useState(false);
+  const addDocument = (path = sourcePath) => registerDocument({ sourcePath: path, modeHint, pageCount: Number(pageCount) || 1, hasSchema });
 
-  return (
-    <div style={{ padding: 20, display: "grid", gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 24, fontWeight: 700 }}>Pilot demo inbox</div>
-        <div style={{ color: "#6b7280", marginTop: 6 }}>
-          Desktop mode: {describeDesktopMode(mode)}. Demo fixtures stay available, but this inbox can now register local
-          documents too.
-        </div>
-      </div>
-      <section style={{ border: "1px solid #d6d3d1", background: "#fcfcfb", padding: 16, display: "grid", gap: 12 }}>
-        <div style={{ fontWeight: 600 }}>Register local document</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
-          <input
-            value={sourcePath}
-            onChange={(event) => setSourcePath(event.target.value)}
-            placeholder="D:\\docs\\invoice.pdf"
-            style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
-          />
-          <button
-            onClick={() =>
-              void (async () => {
-                const picked = await pickDocumentSource();
-                if (picked) {
-                  setSourcePath(picked);
-                  await registerDocument({
-                    sourcePath: picked,
-                    modeHint,
-                    pageCount: Number(pageCount) || 1,
-                    hasSchema
-                  });
-                }
-              })()
-            }
-            style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
-          >
-            Pick from device
-          </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px auto", gap: 10 }}>
-          <select value={modeHint} onChange={(event) => setModeHint(event.target.value)} style={{ padding: "10px 12px" }}>
-            <option value="quick_ocr">quick_ocr</option>
-            <option value="generic_parse">generic_parse</option>
-            <option value="schema_workflow">schema_workflow</option>
-          </select>
-          <input
-            value={pageCount}
-            onChange={(event) => setPageCount(event.target.value)}
-            placeholder="Pages"
-            style={{ padding: "10px 12px", border: "1px solid #d1d5db", background: "#fff" }}
-          />
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={hasSchema} onChange={(event) => setHasSchema(event.target.checked)} />
-            Schema
-          </label>
-          <button
-            disabled={!sourcePath.trim()}
-            onClick={() =>
-              void registerDocument({
-                sourcePath,
-                modeHint,
-                pageCount: Number(pageCount) || 1,
-                hasSchema
-              })
-            }
-            style={{ padding: "10px 12px", border: "1px solid #2563eb", background: "#2563eb", color: "#fff" }}
-          >
-            Add document
-          </button>
-        </div>
-      </section>
-      <section style={{ display: "grid", gap: 12 }}>
-        <div style={{ fontWeight: 600 }}>Local documents</div>
-        {documents.length === 0 ? (
-          <div style={{ color: "#78716c" }}>No local documents registered yet.</div>
-        ) : (
-          documents.map((document) => (
-            <Link
-              key={document.document_id}
-              to={`/workspace?document=${document.document_id}`}
-              style={{
-                display: "grid",
-                gap: 6,
-                border: "1px solid #d6d3d1",
-                background: "#fff",
-                padding: 14,
-                textDecoration: "none",
-                color: "#111827"
-              }}
-            >
-              <div style={{ fontWeight: 600 }}>{document.file_name}</div>
-              <div style={{ color: "#6b7280", fontSize: 13 }}>
-                {document.mode_hint} · {document.source_type} · {document.page_count} page(s)
-              </div>
-              <div style={{ color: "#78716c", fontSize: 12 }}>{document.source_path}</div>
-            </Link>
-          ))
-        )}
-      </section>
-      <div style={{ display: "grid", gap: 12 }}>
-        {demoFixtures.map((fixture) => (
-          <FixtureSummaryCard key={fixture.fixtureId} fixture={fixture} />
-        ))}
-      </div>
-    </div>
-  );
+  return <div className="standard-page standard-page--wide inbox-page">
+    <header className="standard-page__header"><div><span className="eyebrow">Document operations</span><h1>Inbox</h1><p>Import documents, choose a processing mode, and route work into the local Dossier runtime.</p></div><div className="header-status"><span className="runtime-dot" /><span>Desktop mode: {describeDesktopMode(mode)}.</span></div></header>
+    <section className="intake-panel"><div className="section-heading-row"><div><h2>Register local document</h2><p>PDF, image, scan, or handwriting source</p></div><span className="section-index">01</span></div>
+      <div className="intake-source-row"><label className="field-label"><span>Source path</span><input className="input" value={sourcePath} onChange={(event) => setSourcePath(event.target.value)} placeholder="D:\\docs\\invoice.pdf" /></label><button className="button" onClick={() => void (async () => { const picked = await pickDocumentSource(); if (picked) { setSourcePath(picked); await addDocument(picked); } })()}>Pick from device</button></div>
+      <div className="intake-options"><label className="field-label"><span>Processing mode</span><select className="select" value={modeHint} onChange={(event) => setModeHint(event.target.value)}><option value="quick_ocr">quick_ocr</option><option value="generic_parse">generic_parse</option><option value="schema_workflow">schema_workflow</option></select></label><label className="field-label field-label--pages"><span>Pages</span><input className="input" value={pageCount} onChange={(event) => setPageCount(event.target.value)} placeholder="Pages" /></label><label className="checkbox-field"><input type="checkbox" checked={hasSchema} onChange={(event) => setHasSchema(event.target.checked)} /><span>Schema</span></label><button className="button button--primary" disabled={!sourcePath.trim()} onClick={() => void addDocument()}>Add document</button></div>
+    </section>
+    <section className="standard-section"><div className="section-heading-row"><div><h2>Local documents</h2><p>Imported on this device</p></div><span className="section-count">{documents.length}</span></div><div className="document-list">{documents.length === 0 ? <div className="designed-empty"><span className="empty-document-icon" /><strong>No local documents</strong><p>Choose a file above to create the first local document record.</p></div> : documents.map((document) => <Link className="document-row" key={document.document_id} to={`/workspace?document=${document.document_id}`}><span className="document-kind">{document.source_type === "pdf" ? "PDF" : "IMG"}</span><span className="document-copy"><strong>{document.file_name}</strong><small>{document.mode_hint} · {document.page_count} page(s)</small></span><span className="document-path">{document.source_path}</span><span className="row-arrow">›</span></Link>)}</div></section>
+    <section className="standard-section"><div className="section-heading-row"><div><h2>Demo documents</h2><p>Curated fixtures for the three pilot domains</p></div><span className="section-count">{demoFixtures.length}</span></div><div className="fixture-list">{demoFixtures.map((fixture) => <FixtureSummaryCard key={fixture.fixtureId} fixture={fixture} />)}</div></section>
+  </div>;
 }

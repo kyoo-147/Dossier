@@ -3,51 +3,5 @@ import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 
 export function DocumentsPage() {
   const { documents, sessions } = useRuntimeContext();
-
-  return (
-    <div style={{ padding: 20, display: "grid", gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 24, fontWeight: 700 }}>All documents</div>
-        <div style={{ color: "#6b7280", marginTop: 6 }}>Local desktop catalog for imported documents and their latest run state.</div>
-      </div>
-
-      {documents.length === 0 ? (
-        <div style={{ color: "#78716c" }}>No local documents imported yet.</div>
-      ) : (
-        documents.map((document) => {
-          const session = sessions[document.document_id];
-          const reviewTasks = session?.reviewTasks ?? session?.result?.review_tasks ?? [];
-          const needsReview = reviewTasks.some((task) => task.status !== "resolved" && task.status !== "approved");
-          const destination = needsReview ? `/review?document=${document.document_id}` : `/workspace?document=${document.document_id}`;
-
-          return (
-            <Link
-              key={document.document_id}
-              to={destination}
-              style={{
-                display: "grid",
-                gap: 6,
-                border: "1px solid #d6d3d1",
-                background: "#fff",
-                padding: 14,
-                textDecoration: "none",
-                color: "#111827"
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ fontWeight: 600 }}>{document.file_name}</div>
-                <div style={{ color: needsReview ? "#b45309" : "#166534", fontSize: 13 }}>
-                  {needsReview ? "Review" : session?.artifactRef ? "Exported" : "Ready"}
-                </div>
-              </div>
-              <div style={{ color: "#6b7280", fontSize: 13 }}>
-                {document.mode_hint} · {document.source_type} · {document.page_count} page(s)
-              </div>
-              <div style={{ color: "#78716c", fontSize: 12 }}>{document.source_path}</div>
-            </Link>
-          );
-        })
-      )}
-    </div>
-  );
+  return <div className="standard-page standard-page--wide documents-page"><header className="standard-page__header"><div><span className="eyebrow">Local catalog</span><h1>All documents</h1><p>Browse imported documents, their latest pipeline state, and outstanding review work.</p></div><Link className="button button--primary" to="/inbox">Import document</Link></header><section className="catalog-panel"><div className="catalog-toolbar"><span>{documents.length} documents</span><div><button className="catalog-view catalog-view--active">List</button><button className="catalog-view">Grid</button></div></div><div className="catalog-header"><span>Document</span><span>Mode</span><span>Status</span><span>Location</span><span /></div>{documents.length === 0 ? <div className="catalog-empty"><span className="empty-document-icon" /><strong>No documents imported</strong><p>Documents registered from Inbox will appear in this catalog.</p><Link to="/inbox">Go to Inbox</Link></div> : documents.map((document) => { const session = sessions[document.document_id]; const tasks = session?.reviewTasks ?? session?.result?.review_tasks ?? []; const needsReview = tasks.some((task) => task.status !== "resolved" && task.status !== "approved"); const status = needsReview ? "Review" : session?.artifactRef ? "Exported" : session?.processing ? "Processing" : "Ready"; return <Link key={document.document_id} className="catalog-row" to={needsReview ? `/review?document=${document.document_id}` : `/workspace?document=${document.document_id}`}><span className="catalog-document"><span className="document-kind">{document.source_type === "pdf" ? "PDF" : "IMG"}</span><span><strong>{document.file_name}</strong><small>{document.page_count} page(s)</small></span></span><span>{document.mode_hint}</span><span className={`catalog-status catalog-status--${status.toLowerCase()}`}>{status}</span><span className="catalog-path">{document.source_path}</span><span className="row-arrow">›</span></Link>; })}</section></div>;
 }

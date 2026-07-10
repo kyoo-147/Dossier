@@ -1,19 +1,3 @@
-export function RiskPanel({
-  riskScore,
-  riskSummary,
-}: {
-  riskScore: string;
-  riskSummary: string[];
-}) {
-  return (
-    <div style={{ border: "1px solid #d1d5db", background: "#fff", padding: 12 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Risk & Validation</div>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>{riskScore}</div>
-      <div style={{ display: "grid", gap: 8 }}>
-        {riskSummary.map((item) => (
-          <div key={item}>{item}</div>
-        ))}
-      </div>
-    </div>
-  );
+export function RiskPanel({ riskScore, riskSummary }: { riskScore: string; riskSummary: string[] }) {
+  return <div className="risk-panel"><div className="panel-heading">Risk & Validation</div><div className="risk-panel__body"><div className="risk-score"><strong>{riskScore}</strong><small>Low Risk</small></div><div className="risk-list">{riskSummary.map((item) => <div key={item}><span />{item}</div>)}</div></div></div>;
 }
