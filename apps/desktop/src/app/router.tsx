@@ -6,6 +6,7 @@ import { QuickOcrPage } from "../features/quick-ocr/QuickOcrPage.js";
 import { ReviewPage } from "../features/review/ReviewPage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
 import { WorkspacePage } from "../features/workspace/WorkspacePage.js";
+import { ModelRegistryPage } from "../features/model-registry/ModelRegistryPage.js";
 
 export function AppRouter() {
   return (
@@ -18,6 +19,7 @@ export function AppRouter() {
           <Route path="/quick-ocr" element={<QuickOcrPage />} />
           <Route path="/workspace" element={<WorkspacePage />} />
           <Route path="/review" element={<ReviewPage />} />
+          <Route path="/models" element={<ModelRegistryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>

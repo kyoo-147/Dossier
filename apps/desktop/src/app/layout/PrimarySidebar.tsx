@@ -10,6 +10,7 @@ const sidebarItems: Array<{ label: string; to: string; count?: number; icon: Ico
   { label: "All Documents", to: "/documents", icon: "folder" },
   { label: "RAG / Search", to: "/inbox", icon: "search" },
   { label: "Automation", to: "/inbox", icon: "automation" },
+  { label: "Models & Adapters", to: "/models", icon: "settings" },
   { label: "Settings", to: "/settings", icon: "settings" }
 ];
 
