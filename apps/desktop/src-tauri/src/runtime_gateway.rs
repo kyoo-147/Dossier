@@ -50,8 +50,22 @@ impl RuntimeGateway {
     }
 
     pub fn bootstrap(&self) -> RuntimeBootstrap {
+        let venv_python = if cfg!(windows) {
+            self.runtime_root
+                .join(".venv")
+                .join("Scripts")
+                .join("python.exe")
+        } else {
+            self.runtime_root.join(".venv").join("bin").join("python")
+        };
+        let python_exe = if venv_python.exists() {
+            venv_python.display().to_string()
+        } else {
+            "python".to_string()
+        };
+
         RuntimeBootstrap {
-            command: "python".to_string(),
+            command: python_exe,
             args: vec!["-m".to_string(), "dossier_runtime".to_string()],
             working_directory: self.runtime_root.display().to_string(),
             base_url: self.base_url(),
@@ -71,7 +85,21 @@ impl RuntimeGateway {
     }
 
     pub fn spawn_runtime(&self, state_dir: &Path) -> Result<Child, String> {
-        let mut command = Command::new("python");
+        let venv_python = if cfg!(windows) {
+            self.runtime_root
+                .join(".venv")
+                .join("Scripts")
+                .join("python.exe")
+        } else {
+            self.runtime_root.join(".venv").join("bin").join("python")
+        };
+        let python_exe = if venv_python.exists() {
+            venv_python.display().to_string()
+        } else {
+            "python".to_string()
+        };
+
+        let mut command = Command::new(python_exe);
         command
             .arg("-m")
             .arg("dossier_runtime")
@@ -122,7 +150,10 @@ impl RuntimeGateway {
     }
 
     pub fn approve_run(&self, run_id: &str) -> Result<Value, String> {
-        self.post_json(&format!("/runs/{run_id}/approve"), &Value::Object(Default::default()))
+        self.post_json(
+            &format!("/runs/{run_id}/approve"),
+            &Value::Object(Default::default()),
+        )
     }
 
     pub fn reject_run(&self, run_id: &str, note: Option<&str>) -> Result<Value, String> {
