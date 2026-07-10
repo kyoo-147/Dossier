@@ -21,12 +21,12 @@ describe("workspace shell", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument();
+      expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Dossier")).toBeInTheDocument();
     expect(screen.getByText("Agentic Document Intelligence")).toBeInTheDocument();
-    expect(screen.getByText("Document canvas")).toBeInTheDocument();
+    expect(screen.getByText("Document navigator")).toBeInTheDocument();
     expect(screen.getByText("Extracted Fields")).toBeInTheDocument();
     expect(screen.getByText("Actions")).toBeInTheDocument();
     expect(screen.getByText("Risk & Validation")).toBeInTheDocument();

@@ -123,6 +123,7 @@ export interface DesktopGateway {
   exportRun(runId: string, exportTarget: "json" | "markdown" | "connector"): Promise<{ artifact_ref: string; run: RuntimeRunRecord }>;
   pickSaveExportPath(suggestedName: string): Promise<string | null>;
   saveArtifactToPath(artifactRef: string, destinationPath: string): Promise<{ saved_path: string }>;
+  revealPathInFolder(path: string): Promise<void>;
 }
 
 const mockRuns = new Map<string, RuntimeExecutionResult>();
@@ -415,6 +416,9 @@ function createBrowserMockGateway(): DesktopGateway {
     },
     async saveArtifactToPath(_artifactRef, destinationPath) {
       return { saved_path: destinationPath };
+    },
+    async revealPathInFolder(_path) {
+      return;
     }
   };
 }
@@ -541,6 +545,10 @@ function createTauriGateway(): DesktopGateway {
         artifact_ref: artifactRef,
         destination_path: destinationPath
       });
+    },
+    async revealPathInFolder(path) {
+      const opener = await import("@tauri-apps/plugin-opener");
+      await opener.revealItemInDir(path);
     }
   };
 }

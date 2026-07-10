@@ -12,15 +12,20 @@ const sidebarItems = [
   { label: "Settings", count: null }
 ] as const;
 
+function describeRuntimeMode(mode: "browser-mock" | "tauri-live"): string {
+  return mode === "tauri-live" ? "desktop runtime" : "desktop simulator";
+}
+
 export function AppShell() {
   const { booting, bootstrapError, kernelStatus, mode } = useRuntimeContext();
+  const modeLabel = describeRuntimeMode(mode);
   const runtimeLabel = bootstrapError
     ? "Runtime error"
     : booting
       ? "Booting runtime"
       : kernelStatus?.runtime.runtime_running
-        ? `Runtime ready (${mode})`
-        : `Runtime pending (${mode})`;
+        ? `Runtime ready (${modeLabel})`
+        : `Runtime pending (${modeLabel})`;
 
   return (
     <div

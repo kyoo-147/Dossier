@@ -15,6 +15,7 @@ interface FixtureSessionState {
   result?: RuntimeExecutionResult;
   artifactRef?: string | undefined;
   savedExportPath?: string | undefined;
+  revealedExportPath?: string | undefined;
   error?: string | undefined;
   reviewTasks?: RuntimeReviewTaskRecord[];
   revisions?: RuntimeRevisionRecord[];
@@ -42,6 +43,7 @@ interface RuntimeContextValue {
   approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
   rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
   saveSessionExport(sessionKey: string): Promise<void>;
+  revealSessionExport(sessionKey: string): Promise<void>;
   refreshSessionReview(sessionKey: string): Promise<void>;
   editSessionField(sessionKey: string, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveSessionAndExport(sessionKey: string, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
@@ -80,6 +82,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           result,
           artifactRef,
           savedExportPath: artifactRef ? current[sessionKey]?.savedExportPath : undefined,
+          revealedExportPath: artifactRef ? current[sessionKey]?.revealedExportPath : undefined,
           reviewTasks: result.review_tasks,
           revisions: result.revisions ?? [],
           approvalAudit: result.approval_audit ?? []
@@ -306,7 +309,37 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         setSessions((current) =>
           patchSessionState(current, sessionKey, {
             processing: false,
-            savedExportPath: saved.saved_path
+            savedExportPath: saved.saved_path,
+            revealedExportPath: undefined
+          })
+        );
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, sessions]
+  );
+
+  const revealSessionExport = useCallback(
+    async (sessionKey: string) => {
+      const session = sessions[sessionKey];
+      const savedExportPath = session?.savedExportPath;
+      if (!savedExportPath) {
+        throw new Error("Export has not been saved to disk yet.");
+      }
+
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
+      try {
+        await gateway.revealPathInFolder(savedExportPath);
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            revealedExportPath: savedExportPath
           })
         );
       } catch (error) {
@@ -339,6 +372,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         approveAndExport,
         rejectRun,
         saveSessionExport,
+        revealSessionExport,
         refreshSessionReview,
         editSessionField,
         approveSessionAndExport,

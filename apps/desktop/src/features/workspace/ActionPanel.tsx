@@ -5,10 +5,12 @@ interface ActionPanelProps {
   canSaveExport: boolean;
   artifactRef?: string | undefined;
   savedExportPath?: string | undefined;
+  revealedExportPath?: string | undefined;
   error?: string | undefined;
   onProcess(): void;
   onApproveAndExport(): void;
   onSaveExport(): void;
+  onRevealExport(): void;
 }
 
 function buttonStyle(primary = false) {
@@ -28,10 +30,12 @@ export function ActionPanel({
   canSaveExport,
   artifactRef,
   savedExportPath,
+  revealedExportPath,
   error,
   onProcess,
   onApproveAndExport,
-  onSaveExport
+  onSaveExport,
+  onRevealExport
 }: ActionPanelProps) {
   return (
     <div style={{ border: "1px solid #d1d5db", background: "#fff", padding: 12, display: "grid", gap: 10 }}>
@@ -45,11 +49,17 @@ export function ActionPanel({
       <button disabled={processing || !canSaveExport} onClick={onSaveExport} style={buttonStyle()}>
         Save export to disk
       </button>
+      <button disabled={processing || !savedExportPath} onClick={onRevealExport} style={buttonStyle()}>
+        Reveal export in folder
+      </button>
       <div style={{ color: "#6b7280", fontSize: 13 }}>
         {artifactRef ? `Last export: ${artifactRef}` : "No export artifact yet"}
       </div>
       <div style={{ color: "#6b7280", fontSize: 13 }}>
         {savedExportPath ? `Saved to: ${savedExportPath}` : "Export has not been saved to disk"}
+      </div>
+      <div style={{ color: "#6b7280", fontSize: 13 }}>
+        {revealedExportPath ? `Revealed in file explorer: ${revealedExportPath}` : "Export location has not been revealed"}
       </div>
       {error ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
     </div>

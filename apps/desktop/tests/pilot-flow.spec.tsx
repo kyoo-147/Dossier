@@ -29,7 +29,7 @@ describe("pilot flows", () => {
   it("runs quick OCR fixture flow", async () => {
     renderRoute("/workspace?fixture=healthcare_handwriting_prescription", <WorkspacePage />);
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Run local pipeline"));
 
     await waitFor(() => expect(screen.getByText(/Run mock_healthcare_handwriting_prescription/)).toBeInTheDocument());
@@ -38,7 +38,7 @@ describe("pilot flows", () => {
   it("runs generic parse fixture flow and exports", async () => {
     renderRoute("/workspace?fixture=finance_clean_invoice", <WorkspacePage />);
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Run local pipeline"));
     await waitFor(() => expect(screen.getByText(/Run mock_finance_clean_invoice/)).toBeInTheDocument());
 
@@ -49,7 +49,7 @@ describe("pilot flows", () => {
   it("runs schema workflow review path with edit and approval", async () => {
     renderRoute("/review?fixture=finance_risk_invoice", <ReviewPage />);
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     expect(screen.getByText("Approve and export JSON")).toBeDisabled();
   });
 
@@ -68,7 +68,7 @@ describe("pilot flows", () => {
       </RuntimeProvider>
     );
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
 
     const sourcePathInput = screen.getAllByRole("textbox")[0]!;
     fireEvent.change(sourcePathInput, {
@@ -89,7 +89,7 @@ describe("pilot flows", () => {
   it("picks a local document from the desktop picker entry point", async () => {
     renderRoute("/inbox", <InboxPage />);
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Pick from device"));
 
     await waitFor(() => expect(screen.getByText("picked-demo.pdf")).toBeInTheDocument());
@@ -110,7 +110,7 @@ describe("pilot flows", () => {
       </RuntimeProvider>
     );
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
 
     const sourcePathInput = screen.getAllByRole("textbox")[0]!;
     fireEvent.change(sourcePathInput, {
@@ -149,7 +149,7 @@ describe("pilot flows", () => {
       </RuntimeProvider>
     );
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
 
     const sourcePathInput = screen.getAllByRole("textbox")[0]!;
     fireEvent.change(sourcePathInput, {
@@ -166,7 +166,7 @@ describe("pilot flows", () => {
   it("saves an exported artifact to a desktop path after approval", async () => {
     renderRoute("/workspace?fixture=finance_clean_invoice", <WorkspacePage />);
 
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Run local pipeline"));
     await waitFor(() => expect(screen.getByText(/Run mock_finance_clean_invoice/)).toBeInTheDocument());
 
@@ -175,11 +175,16 @@ describe("pilot flows", () => {
 
     fireEvent.click(screen.getByText("Save export to disk"));
     await waitFor(() => expect(screen.getByText(/Saved to: D:\\Exports\\mock_finance_clean_invoice\.json/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Reveal export in folder"));
+    await waitFor(() =>
+      expect(screen.getByText(/Revealed in file explorer: D:\\Exports\\mock_finance_clean_invoice\.json/)).toBeInTheDocument()
+    );
   });
 
   it("renders quick OCR entry demo list", async () => {
     renderRoute("/quick-ocr", <QuickOcrPage />);
-    await waitFor(() => expect(screen.getByText("Runtime ready (browser-mock)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
     expect(screen.getByText("Quick OCR")).toBeInTheDocument();
     expect(screen.getByText("rx_handwriting_003.jpg")).toBeInTheDocument();
   });

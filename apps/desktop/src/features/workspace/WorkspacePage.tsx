@@ -82,8 +82,17 @@ export function WorkspacePage() {
   const [searchParams] = useSearchParams();
   const fixture = searchParams.get("document") ? null : resolveWorkspaceFixture(searchParams.get("fixture"));
   const documentId = searchParams.get("document");
-  const { documents, sessions, processFixture, processDocument, approveSessionAndExport, saveSessionExport, editSessionField, rejectSessionRun } =
-    useRuntimeContext();
+  const {
+    documents,
+    sessions,
+    processFixture,
+    processDocument,
+    approveSessionAndExport,
+    saveSessionExport,
+    revealSessionExport,
+    editSessionField,
+    rejectSessionRun
+  } = useRuntimeContext();
   const document = documentId ? documents.find((item) => item.document_id === documentId) ?? null : null;
   const sessionKey = document?.document_id ?? fixture?.fixtureId ?? "";
   const session = sessionKey ? sessions[sessionKey] : undefined;
@@ -143,13 +152,14 @@ export function WorkspacePage() {
         </div>
         <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>State: {stateLabel}</div>
         <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, letterSpacing: "0.02em" }}>Document navigator</div>
           <div style={{ border: "1px solid #cbd5e1", padding: 12, height: 240 }}>Page 1 thumbnail</div>
           <div style={{ border: "1px solid #e5e7eb", padding: 12, height: 240 }}>Page 2 thumbnail</div>
         </div>
       </section>
       <section style={{ borderRight: "1px solid #e5e7eb", padding: 16, display: "grid", gap: 16 }}>
         <div style={{ border: "1px solid #d1d5db", background: "#fff", minHeight: 260 }}>
-          <div style={{ padding: 12, borderBottom: "1px solid #e5e7eb" }}>Document canvas</div>
+          <div style={{ padding: 12, borderBottom: "1px solid #e5e7eb" }}>Evidence canvas</div>
           <div style={{ padding: 12, color: "#6b7280", fontSize: 13 }}>
             Selected field: {selectedField?.label ?? "None"} · Selection sync is currently field-driven.
           </div>
@@ -209,6 +219,7 @@ export function WorkspacePage() {
           canSaveExport={Boolean(session?.artifactRef)}
           artifactRef={session?.artifactRef}
           savedExportPath={session?.savedExportPath}
+          revealedExportPath={session?.revealedExportPath}
           error={session?.error}
           onProcess={() => {
             if (fixture) {
@@ -224,6 +235,10 @@ export function WorkspacePage() {
           onSaveExport={() => {
             if (!sessionKey) return;
             void saveSessionExport(sessionKey);
+          }}
+          onRevealExport={() => {
+            if (!sessionKey) return;
+            void revealSessionExport(sessionKey);
           }}
         />
       </section>
