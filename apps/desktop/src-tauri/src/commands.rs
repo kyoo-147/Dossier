@@ -299,6 +299,13 @@ pub fn save_artifact_to_path(
 }
 
 #[tauri::command]
+pub async fn install_provider(provider_id: String) -> Result<(), String> {
+    // Simulate download and installation
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_kernel_status(state: State<'_, AppState>) -> Result<KernelStatusResponse, String> {
     let kernel = state
         .kernel
