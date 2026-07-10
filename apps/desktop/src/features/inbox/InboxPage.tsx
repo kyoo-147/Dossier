@@ -4,6 +4,10 @@ import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { FixtureSummaryCard } from "../workspace/FixtureSummaryCard.js";
 import { demoFixtures } from "../workspace/workspaceFixtures.js";
 
+function describeDesktopMode(mode: "browser-mock" | "tauri-live"): string {
+  return mode === "tauri-live" ? "desktop runtime" : "desktop simulator";
+}
+
 export function InboxPage() {
   const { documents, registerDocument, pickDocumentSource, mode } = useRuntimeContext();
   const [sourcePath, setSourcePath] = useState("");
@@ -16,7 +20,8 @@ export function InboxPage() {
       <div>
         <div style={{ fontSize: 24, fontWeight: 700 }}>Pilot demo inbox</div>
         <div style={{ color: "#6b7280", marginTop: 6 }}>
-          Desktop mode: {mode}. Demo fixtures stay available, but this inbox can now register local documents too.
+          Desktop mode: {describeDesktopMode(mode)}. Demo fixtures stay available, but this inbox can now register local
+          documents too.
         </div>
       </div>
       <section style={{ border: "1px solid #d6d3d1", background: "#fcfcfb", padding: 16, display: "grid", gap: 12 }}>

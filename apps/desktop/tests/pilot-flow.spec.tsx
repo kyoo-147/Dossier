@@ -90,6 +90,7 @@ describe("pilot flows", () => {
     renderRoute("/inbox", <InboxPage />);
 
     await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
+    expect(screen.getByText(/Desktop mode: desktop simulator\./)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Pick from device"));
 
     await waitFor(() => expect(screen.getByText("picked-demo.pdf")).toBeInTheDocument());

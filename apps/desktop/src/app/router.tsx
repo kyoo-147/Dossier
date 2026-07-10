@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell.js";
 import { DocumentsPage } from "../features/documents/DocumentsPage.js";
 import { InboxPage } from "../features/inbox/InboxPage.js";
@@ -9,7 +9,7 @@ import { WorkspacePage } from "../features/workspace/WorkspacePage.js";
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/inbox" replace />} />
@@ -21,6 +21,6 @@ export function AppRouter() {
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
