@@ -37,11 +37,32 @@ pub fn initialize_workspace(root: &Path) -> std::io::Result<WorkspacePaths> {
     })
 }
 
-pub fn runtime_root_from_manifest_dir() -> PathBuf {
+pub fn resolve_runtime_root(resource_dir: Option<&Path>) -> PathBuf {
+    if let Some(resource_dir) = resource_dir {
+        let bundled_runtime = resource_dir.join("local-runtime");
+        if bundled_runtime.exists() {
+            return bundled_runtime;
+        }
+    }
+
+    runtime_root_from_dev_layout()
+}
+
+#[cfg(debug_assertions)]
+fn runtime_root_from_dev_layout() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("src-tauri should live under apps/desktop")
         .join("../local-runtime")
+}
+
+#[cfg(not(debug_assertions))]
+fn runtime_root_from_dev_layout() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("local-runtime")
 }
 
 pub fn list_documents(workspace_root: &Path) -> std::io::Result<Vec<DesktopDocumentRecord>> {

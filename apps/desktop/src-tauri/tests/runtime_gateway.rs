@@ -1,6 +1,7 @@
 use dossier_desktop_lib::runtime_gateway::RuntimeGateway;
 use dossier_desktop_lib::storage::{
     copy_artifact_to_destination, initialize_workspace, list_documents, register_document,
+    resolve_runtime_root,
 };
 use std::path::PathBuf;
 
@@ -14,6 +15,18 @@ fn runtime_gateway_builds_python_bootstrap() {
         bootstrap.args,
         vec!["-m".to_string(), "dossier_runtime".to_string()]
     );
+}
+
+#[test]
+fn runtime_root_prefers_bundled_resource_dir() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let resource_dir = temp_dir.path().join("resources");
+    let bundled_runtime = resource_dir.join("local-runtime");
+    std::fs::create_dir_all(&bundled_runtime).expect("bundled runtime should be created");
+
+    let resolved = resolve_runtime_root(Some(resource_dir.as_path()));
+
+    assert_eq!(resolved, bundled_runtime);
 }
 
 #[test]

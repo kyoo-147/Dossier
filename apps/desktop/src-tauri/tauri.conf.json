@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.dossier.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --dir ../.. build",
+    "beforeBuildCommand": "pnpm --dir ../.. build && node ../../tooling/scripts/prepare-runtime-resource.mjs",
     "beforeDevCommand": "pnpm --dir ../.. --filter @dossier/desktop dev --host 127.0.0.1 --port 5173",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist"
@@ -29,6 +29,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "runtime-resource/local-runtime": "local-runtime"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

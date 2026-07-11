@@ -6,16 +6,20 @@ pub mod storage;
 
 use runtime_gateway::RuntimeGateway;
 use state::AppState;
-use storage::runtime_root_from_manifest_dir;
+use storage::resolve_runtime_root;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let runtime_gateway = RuntimeGateway::new(runtime_root_from_manifest_dir());
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState::new(runtime_gateway))
+        .setup(|app| {
+            let resource_dir = app.path().resource_dir().ok();
+            let runtime_root = resolve_runtime_root(resource_dir.as_deref());
+            app.manage(AppState::new(RuntimeGateway::new(runtime_root)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_kernel_status,
             commands::initialize_workspace,

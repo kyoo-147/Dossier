@@ -16,6 +16,8 @@ coverage/
 .turbo/
 *.tsbuildinfo
 test-results/
+playwright-report/
+benchmark_report.md
 
 # Python
 .venv/
@@ -31,3 +33,4 @@ src-tauri/target/
 .dossier/
 artifacts/
 model-cache/
+apps/desktop/src-tauri/runtime-resource/

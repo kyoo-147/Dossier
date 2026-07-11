@@ -1,10 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-// @ts-ignore
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
-
-// Configure worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface PdfViewerProps {
   url: string;
@@ -22,6 +16,16 @@ export function PdfViewer({ url, pageNumber = 1, scale = 1.0 }: PdfViewerProps) 
 
     const renderPage = async () => {
       try {
+        if (typeof DOMMatrix === "undefined") {
+          return;
+        }
+
+        const [pdfjsLib, workerModule] = await Promise.all([
+          import("pdfjs-dist"),
+          import("pdfjs-dist/build/pdf.worker.mjs?url")
+        ]);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+
         const loadingTask = pdfjsLib.getDocument({ url });
         const pdf = await loadingTask.promise;
         

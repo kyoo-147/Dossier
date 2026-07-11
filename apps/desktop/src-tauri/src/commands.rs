@@ -308,7 +308,7 @@ pub fn save_artifact_to_path(
 }
 
 #[tauri::command]
-pub async fn install_provider(provider_id: String) -> Result<(), String> {
+pub async fn install_provider(_provider_id: String) -> Result<(), String> {
     // Simulate download and installation
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     Ok(())

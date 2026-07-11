@@ -10,6 +10,7 @@ describe("tauri desktop config", () => {
     };
 
     expect(config.build.beforeBuildCommand).toContain("pnpm --dir ../.. build");
+    expect(config.build.beforeBuildCommand).toContain("prepare-runtime-resource.mjs");
     expect(config.build.beforeDevCommand).toContain("pnpm --dir ../.. --filter @dossier/desktop dev");
     expect(config.build.beforeDevCommand).toContain("--host 127.0.0.1 --port 5173");
   });
@@ -29,5 +30,16 @@ describe("tauri desktop config", () => {
         "icons/icon.ico"
       ])
     );
+  });
+
+  it("bundles a prepared runtime resource instead of the source test tree", () => {
+    const configPath = resolve(import.meta.dirname, "../src-tauri/tauri.conf.json");
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+      bundle?: { resources?: Record<string, string> };
+    };
+
+    expect(config.bundle?.resources).toEqual({
+      "runtime-resource/local-runtime": "local-runtime"
+    });
   });
 });
