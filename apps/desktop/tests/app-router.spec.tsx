@@ -42,6 +42,7 @@ describe("app router", () => {
     expect(screen.queryByTestId("standard-shell")).not.toBeInTheDocument();
     expect(screen.getByTestId("document-rail")).toBeInTheDocument();
     expect(screen.getByTestId("document-viewer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Evidence region overlay")).toBeInTheDocument();
     expect(screen.getByTestId("document-inspector")).toBeInTheDocument();
     expect(screen.getByTestId("workbench")).toBeInTheDocument();
     expect(screen.getByText("Current Run")).toBeInTheDocument();

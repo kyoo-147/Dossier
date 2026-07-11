@@ -4,6 +4,7 @@ import { WorkstationShell } from "../../app/layout/WorkstationShell.js";
 import { DocumentViewerShell } from "../../app/layout/DocumentViewerShell.js";
 import { DocumentInspectorShell } from "../../app/layout/DocumentInspectorShell.js";
 import { WorkbenchShell } from "../../app/layout/WorkbenchShell.js";
+import { EvidenceCanvasOverlay, type EvidenceRegion } from "../../app/layout/EvidenceCanvasOverlay.js";
 import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { resolveWorkspaceFixture, reviewFixtures } from "../workspace/workspaceFixtures.js";
 import { ReviewInspector } from "./ReviewInspector.js";
@@ -42,6 +43,11 @@ export function ReviewPage() {
   const title = fixture?.fileName ?? document?.file_name ?? "No document selected";
   const source = session?.result?.source;
   const runEvents = session?.events ?? [];
+  const reviewRegions: EvidenceRegion[] = [
+    { id: "review-reason", label: "Review reason", x: 0.04, y: 0.25, w: 0.92, h: 0.08, tone: "warning" },
+    { id: "review-grid", label: "Evidence grid", x: 0.04, y: 0.43, w: 0.92, h: 0.23, tone: "accent" },
+    { id: "approval-signature", label: "Approval signature", x: 0.52, y: 0.76, w: 0.42, h: 0.15, tone: "success" }
+  ];
 
   useEffect(() => {
     if (fixture && session?.result?.run.run_id) void refreshReview(fixture);
@@ -119,7 +125,7 @@ export function ReviewPage() {
             <div className="review-form-block review-form-block--warn"><strong>Detected review reason</strong><span>{warnings[0] ?? "No active warning"}</span></div>
             <div className="review-sheet-grid">{Array.from({ length: 18 }, (_, index) => <span key={index} />)}</div>
             <div className="review-signature"><span>Reviewer notes</span><span>Approval signature</span></div>
-            <span className="review-focus-box" />
+            <EvidenceCanvasOverlay regions={reviewRegions} selectedRegionId={reviewRegions[Math.min(selectedTaskIndex, reviewRegions.length - 1)]?.id ?? null} />
           </article>
         </DocumentViewerShell>
       }

@@ -5,6 +5,7 @@ import { DocumentRailShell } from "../../app/layout/DocumentRailShell.js";
 import { DocumentViewerShell } from "../../app/layout/DocumentViewerShell.js";
 import { DocumentInspectorShell } from "../../app/layout/DocumentInspectorShell.js";
 import { WorkbenchShell } from "../../app/layout/WorkbenchShell.js";
+import { EvidenceCanvasOverlay, type EvidenceRegion } from "../../app/layout/EvidenceCanvasOverlay.js";
 import { useRuntimeContext } from "../../app/platform/runtimeContext.js";
 import { ActionPanel } from "./ActionPanel.js";
 import { FieldTable, type WorkspaceFieldRow } from "./FieldTable.js";
@@ -131,6 +132,17 @@ export function WorkspacePage() {
   const artifactRef = session?.result?.source?.artifact_ref ?? document?.artifact_ref ?? null;
   const artifactHash = session?.result?.source?.artifact_sha256 ?? document?.artifact_sha256 ?? null;
   const runEvents = session?.events ?? [];
+  const evidenceRegions: EvidenceRegion[] = workspace.fields.slice(0, 5).map((field, index) => {
+    const templates = [
+      { x: 0.07, y: 0.23, w: 0.86, h: 0.10, tone: "warning" as const },
+      { x: 0.07, y: 0.35, w: 0.70, h: 0.10, tone: "accent" as const },
+      { x: 0.07, y: 0.47, w: 0.86, h: 0.16, tone: "success" as const },
+      { x: 0.07, y: 0.66, w: 0.86, h: 0.09, tone: "accent" as const },
+      { x: 0.07, y: 0.80, w: 0.86, h: 0.13, tone: "warning" as const }
+    ];
+    const template = templates[index] ?? templates[templates.length - 1]!;
+    return { ...template, id: field.fieldId, label: field.label };
+  });
 
   return (
     <WorkstationShell
@@ -209,7 +221,14 @@ export function WorkspacePage() {
               <span>Adapter: {extraction?.adapter ?? "none"}</span>
               <span>Chars: {extraction?.characters ?? 0}</span>
             </div>
-            {workspace.fields.slice(0, 5).map((field, index) => <span key={field.fieldId} className={`evidence-box evidence-box--${index + 1}`} />)}
+            <EvidenceCanvasOverlay
+              regions={evidenceRegions}
+              selectedRegionId={selectedField?.fieldId ?? null}
+              onSelectRegion={(fieldId) => {
+                setSelectedFieldId(fieldId);
+                setEditValue(workspace.fields.find((field) => field.fieldId === fieldId)?.normalizedValue ?? "");
+              }}
+            />
           </article>
         </DocumentViewerShell>
       }
