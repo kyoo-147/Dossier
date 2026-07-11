@@ -5,7 +5,7 @@ test.describe("Screenshot Regression", () => {
 
   test("Workspace Page Layout", async ({ page }) => {
     await page.goto("/#/workspace");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("workstation-shell")).toBeVisible();
 
     await expect(page).toHaveScreenshot("workspace-1440x960.png", {
       fullPage: true,
@@ -15,7 +15,7 @@ test.describe("Screenshot Regression", () => {
 
   test("Review Page Layout", async ({ page }) => {
     await page.goto("/#/review?fixture=finance_risk_invoice");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Current Run")).toBeVisible();
 
     await expect(page).toHaveScreenshot("review-1440x960.png", {
       fullPage: true,
@@ -25,7 +25,7 @@ test.describe("Screenshot Regression", () => {
 
   test("Inbox Page Layout", async ({ page }) => {
     await page.goto("/#/inbox");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
 
     await expect(page).toHaveScreenshot("inbox-1440x960.png", {
       fullPage: true,
@@ -35,7 +35,7 @@ test.describe("Screenshot Regression", () => {
 
   test("Settings Page Layout", async ({ page }) => {
     await page.goto("/#/settings");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
     await expect(page).toHaveScreenshot("settings-1440x960.png", {
       fullPage: true,

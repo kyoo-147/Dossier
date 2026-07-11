@@ -37,7 +37,8 @@ describe("standard desktop pages", () => {
     await renderPage("/quick-ocr", <QuickOcrPage />);
     expect(screen.getByText("Single document utility")).toBeInTheDocument();
     expect(screen.getByText("Drop a PDF or image here")).toBeInTheDocument();
-    expect(screen.getByText("Choose a document")).toBeInTheDocument();
+    expect(screen.getByText("Choose and run OCR")).toBeInTheDocument();
+    expect(screen.getByText("Quick OCR result")).toBeInTheDocument();
     expect(screen.getByText("Quick OCR fixtures")).toBeInTheDocument();
   });
 });

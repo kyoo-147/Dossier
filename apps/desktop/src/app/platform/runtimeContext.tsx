@@ -38,7 +38,7 @@ interface RuntimeContextValue {
     modeHint: string;
     pageCount: number;
     hasSchema: boolean;
-  }): Promise<void>;
+  }): Promise<DesktopDocumentRecord>;
   processFixture(fixture: SampleFixture): Promise<void>;
   processDocument(document: DesktopDocumentRecord): Promise<void>;
   refreshReview(fixture: SampleFixture): Promise<void>;
@@ -154,6 +154,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       const nextDocuments = await gateway.listDocuments();
       setDocuments(nextDocuments);
       setSessions((current) => patchSessionState(current, created.document_id, { processing: false }));
+      return created;
     },
     [gateway]
   );
