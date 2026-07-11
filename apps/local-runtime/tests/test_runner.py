@@ -10,6 +10,8 @@ def test_runner_creates_run_and_emits_event(tmp_path: Path) -> None:
 
     assert run.status == "created"
     assert runner.events[0]["event_type"] == "run.created"
+    assert runner.events[0]["sequence"] == 1
+    assert runner.list_run_events(run.run_id)["events"][0]["type"] == "run.created"
 
 
 def test_runner_updates_run_status_and_writes_artifact(tmp_path: Path) -> None:
@@ -83,3 +85,43 @@ trailer << /Root 1 0 R >>
     assert {field["schema_key"]: field["normalized_value"] for field in result["fields"]}[
         "invoice.total_amount"
     ] == "7590000"
+    assert result["source"]["artifact_sha256"]
+
+
+def test_runner_reports_unsupported_image_without_filename_extraction(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    artifact_ref = runner.create_artifact(b"\x89PNG\r\n", suffix=".png")
+    run = runner.create_run("doc_image", "generic_parse", "generic_parse", "0.1.0")
+
+    result = runner.execute_run(
+        run.run_id,
+        {
+            "document_id": "doc_image",
+            "file_name": "invoice_000789.png",
+            "source_type": "image",
+            "artifact_ref": artifact_ref,
+            "page_count": 1,
+            "has_schema": False,
+        },
+    )
+
+    assert result["source"]["text_extraction"]["status"] == "unsupported_source_type"
+    assert result["fields"] == []
+
+
+def test_runner_cancel_blocks_export_and_replays_events(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    run = runner.create_run("doc_cancel", "generic_parse", "generic_parse", "0.1.0")
+
+    canceled = runner.cancel_run(run.run_id, "test cancel")
+
+    assert canceled["canceled"] is True
+    assert canceled["run"]["status"] == "canceled"
+    assert runner.list_run_events(run.run_id, after=1)["events"][-1]["type"] == "run.canceled"
+
+    try:
+        runner.export_run(run.run_id, "json")
+    except RuntimeError as error:
+        assert "canceled" in str(error)
+    else:
+        raise AssertionError("export should be blocked for canceled runs")

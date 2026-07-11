@@ -44,7 +44,7 @@ describe("app router", () => {
     expect(screen.getByTestId("document-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("document-inspector")).toBeInTheDocument();
     expect(screen.getByTestId("workbench")).toBeInTheDocument();
-    expect(screen.getByText("Review queue")).toBeInTheDocument();
+    expect(screen.getByText("Current Run")).toBeInTheDocument();
   });
 
   it("keeps settings in the standard shell with enterprise setting groups", async () => {

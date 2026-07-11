@@ -31,15 +31,17 @@ describe("workspace shell", () => {
     expect(screen.getByTestId("document-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("document-inspector")).toBeInTheDocument();
     expect(screen.getByTestId("workbench")).toBeInTheDocument();
+
     const workbench = screen.getByTestId("workbench");
     expect(within(workbench).getByText("Agent Logs")).toBeInTheDocument();
     expect(within(workbench).getByText("Self-Correction")).toBeInTheDocument();
     expect(within(workbench).getByText("Errors & Warnings")).toBeInTheDocument();
+
     const inspector = screen.getByTestId("document-inspector");
     expect(within(inspector).getAllByText("Extracted Fields")).toHaveLength(2);
+    expect(within(inspector).getByText("Risk & Anomaly")).toBeInTheDocument();
     expect(within(workbench).getByText("Actions")).toBeInTheDocument();
-    expect(within(inspector).getByText("Risk & Validation")).toBeInTheDocument();
-    expect(screen.getByText("RISK-2026-0021.pdf")).toBeInTheDocument();
-    expect(screen.getByText("finance · schema_workflow · risk")).toBeInTheDocument();
+    expect(screen.getAllByText("RISK-2026-0021.pdf").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("finance · schema_workflow · risk").length).toBeGreaterThanOrEqual(1);
   });
 });

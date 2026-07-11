@@ -6,6 +6,12 @@ import { resolve } from "node:path";
 export interface BenchmarkObservation {
   fixtureId: string;
   source: "runtime_artifact" | "workspace_fixture";
+  artifactRef?: string;
+  artifactSha256?: string;
+  textExtractionStatus?: string;
+  eventCount?: number;
+  exported?: boolean;
+  exportArtifactRef?: string | null;
   matchedFields: number;
   totalFields: number;
   requiredFields: number;
@@ -82,6 +88,14 @@ interface RuntimeProbeResult {
   }>;
   warnings: unknown[];
   review_tasks: unknown[];
+  source?: {
+    artifact_ref?: string | null;
+    artifact_sha256?: string | null;
+    text_extraction?: { status?: string; adapter?: string; characters?: number };
+  };
+  events?: unknown[];
+  exported?: boolean;
+  export_artifact_ref?: string | null;
 }
 
 function runtimeFieldMap(result: RuntimeProbeResult): Map<string, string> {
@@ -102,7 +116,8 @@ function scoreFixture(
   actualFields: Map<string, string>,
   reviewTriggered: boolean,
   latencyMs: number,
-  source: BenchmarkObservation["source"]
+  source: BenchmarkObservation["source"],
+  metadata: Partial<BenchmarkObservation> = {}
 ): BenchmarkObservation {
   const totalFields = fixture.expectedFields.length;
   const requiredFields = fixture.expectedFields.filter((field) => field.required).length;
@@ -123,6 +138,7 @@ function scoreFixture(
   return {
     fixtureId: fixture.fixtureId,
     source,
+    ...metadata,
     matchedFields,
     totalFields,
     requiredFields,
@@ -171,12 +187,28 @@ export function observeFixtureFromRuntime(
   fixture: SampleFixture,
   result: RuntimeProbeResult & { elapsedMs?: number }
 ): BenchmarkObservation {
+  const metadata: Partial<BenchmarkObservation> = {
+    eventCount: result.events?.length ?? 0,
+    exported: result.exported ?? false,
+    exportArtifactRef: result.export_artifact_ref ?? null
+  };
+  if (result.source?.artifact_ref) {
+    metadata.artifactRef = result.source.artifact_ref;
+  }
+  if (result.source?.artifact_sha256) {
+    metadata.artifactSha256 = result.source.artifact_sha256;
+  }
+  if (result.source?.text_extraction?.status) {
+    metadata.textExtractionStatus = result.source.text_extraction.status;
+  }
+
   return scoreFixture(
     fixture,
     runtimeFieldMap(result),
     result.warnings.length > 0 || result.review_tasks.length > 0,
     result.elapsedMs ?? fixture.expectedLatencyMs,
-    "runtime_artifact"
+    "runtime_artifact",
+    metadata
   );
 }
 

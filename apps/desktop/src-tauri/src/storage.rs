@@ -31,6 +31,17 @@ pub struct DesktopDocumentRecord {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactManifest {
+    pub artifact_ref: String,
+    pub sha256: String,
+    pub size: u64,
+    pub source_type: String,
+    pub original_name: String,
+    pub stored_path: String,
+    pub created_at: String,
+}
+
 pub fn initialize_workspace(root: &Path) -> std::io::Result<WorkspacePaths> {
     let state_dir = root.join(".dossier").join("state");
     let artifacts_dir = root.join(".dossier").join("artifacts");
@@ -109,7 +120,11 @@ pub fn register_document(
         _ => "pdf",
     }
     .to_string();
-    let artifact = import_source_artifact(workspace_root, source_path)?;
+    let created_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs().to_string())
+        .unwrap_or_else(|_| "0".to_string());
+    let artifact = import_source_artifact(workspace_root, source_path, &source_type, &file_name, &created_at)?;
 
     let record = DesktopDocumentRecord {
         document_id: format!("doc_{}", Uuid::new_v4().simple()),
@@ -123,10 +138,7 @@ pub fn register_document(
         has_schema,
         mode_hint: mode_hint.to_string(),
         status: "ready".to_string(),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_secs().to_string())
-            .unwrap_or_else(|_| "0".to_string()),
+        created_at,
     };
 
     documents.push(record.clone());
@@ -143,6 +155,9 @@ struct ImportedArtifact {
 fn import_source_artifact(
     workspace_root: &Path,
     source_path: &Path,
+    source_type: &str,
+    original_name: &str,
+    created_at: &str,
 ) -> std::io::Result<ImportedArtifact> {
     let mut source = fs::File::open(source_path)?;
     let mut hasher = Sha256::new();
@@ -169,14 +184,51 @@ fn import_source_artifact(
     fs::create_dir_all(&artifacts_dir)?;
     let target = artifacts_dir.join(&artifact_name);
     if !target.exists() {
-        fs::copy(source_path, target)?;
+        fs::copy(source_path, &target)?;
     }
+    let artifact_ref = format!("artifact://{artifact_name}");
+
+    upsert_artifact_manifest(
+        workspace_root,
+        ArtifactManifest {
+            artifact_ref: artifact_ref.clone(),
+            sha256: sha256.clone(),
+            size,
+            source_type: source_type.to_string(),
+            original_name: original_name.to_string(),
+            stored_path: target.display().to_string(),
+            created_at: created_at.to_string(),
+        },
+    )?;
 
     Ok(ImportedArtifact {
-        artifact_ref: format!("artifact://{artifact_name}"),
+        artifact_ref,
         sha256,
         size,
     })
+}
+
+pub fn list_artifact_manifests(workspace_root: &Path) -> std::io::Result<Vec<ArtifactManifest>> {
+    let manifest_path = artifact_manifest_path(workspace_root);
+    if !manifest_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let raw = fs::read_to_string(manifest_path)?;
+    serde_json::from_str::<Vec<ArtifactManifest>>(&raw).map_err(std::io::Error::other)
+}
+
+fn upsert_artifact_manifest(workspace_root: &Path, manifest: ArtifactManifest) -> std::io::Result<()> {
+    let mut manifests = list_artifact_manifests(workspace_root)?;
+    manifests.retain(|item| item.artifact_ref != manifest.artifact_ref);
+    manifests.push(manifest);
+
+    let manifest_path = artifact_manifest_path(workspace_root);
+    if let Some(parent) = manifest_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let payload = serde_json::to_string_pretty(&manifests).map_err(std::io::Error::other)?;
+    fs::write(manifest_path, payload)
 }
 
 pub fn copy_artifact_to_destination(
@@ -230,4 +282,11 @@ fn documents_registry_path(workspace_root: &Path) -> PathBuf {
         .join(".dossier")
         .join("state")
         .join("documents.json")
+}
+
+fn artifact_manifest_path(workspace_root: &Path) -> PathBuf {
+    workspace_root
+        .join(".dossier")
+        .join("state")
+        .join("artifacts.json")
 }

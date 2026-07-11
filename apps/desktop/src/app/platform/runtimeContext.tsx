@@ -6,6 +6,7 @@ import {
   type DesktopKernelStatus,
   type RuntimeApprovalAuditRecord,
   type RuntimeExecutionResult,
+  type RuntimeProgressEvent,
   type RuntimeRevisionRecord,
   type RuntimeReviewTaskRecord
 } from "./desktopGateway.js";
@@ -20,6 +21,8 @@ interface FixtureSessionState {
   reviewTasks?: RuntimeReviewTaskRecord[];
   revisions?: RuntimeRevisionRecord[];
   approvalAudit?: RuntimeApprovalAuditRecord[];
+  events?: RuntimeProgressEvent[];
+  nextEventSequence?: number;
 }
 
 interface RuntimeContextValue {
@@ -42,6 +45,7 @@ interface RuntimeContextValue {
   editField(fixture: SampleFixture, fieldId: string, newValue: string, note?: string): Promise<void>;
   approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
   rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
+  cancelSessionRun(sessionKey: string, reason?: string): Promise<void>;
   saveSessionExport(sessionKey: string): Promise<void>;
   revealSessionExport(sessionKey: string): Promise<void>;
   refreshSessionReview(sessionKey: string): Promise<void>;
@@ -127,9 +131,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       setSessions((current) => patchSessionState(current, fixture.fixtureId, { processing: true, error: undefined }));
       try {
         const result = await gateway.processFixture(fixture);
+        const replay = await gateway.listRunEvents(result.run.run_id, 0);
         const status = await gateway.getKernelStatus();
         setKernelStatus(status);
         updateSessionFromResult(fixture.fixtureId, result);
+        setSessions((current) => patchSessionState(current, fixture.fixtureId, { events: replay.events, nextEventSequence: replay.next_sequence }));
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, fixture.fixtureId, {
@@ -159,9 +165,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       setSessions((current) => patchSessionState(current, document.document_id, { processing: true, error: undefined }));
       try {
         const result = await gateway.processDocument(document);
+        const replay = await gateway.listRunEvents(result.run.run_id, 0);
         const status = await gateway.getKernelStatus();
         setKernelStatus(status);
         updateSessionFromResult(document.document_id, result);
+        setSessions((current) => patchSessionState(current, document.document_id, { events: replay.events, nextEventSequence: replay.next_sequence }));
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, document.document_id, {
@@ -198,7 +206,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     async (sessionKey: string, fieldId: string, newValue: string, note?: string) => {
       const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
-      if (!runId) {
+      const baseResult = session?.result;
+      if (!runId || !baseResult) {
         throw new Error("Run has not been executed yet.");
       }
 
@@ -206,6 +215,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       try {
         const result = await gateway.applyFieldEdit(runId, fieldId, newValue, note);
         updateSessionFromResult(sessionKey, result);
+        const replay = await gateway.listRunEvents(runId, session.nextEventSequence ?? 0);
+        setSessions((current) => patchSessionState(current, sessionKey, { events: [...(current[sessionKey]?.events ?? []), ...replay.events], nextEventSequence: replay.next_sequence }));
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, sessionKey, {
@@ -222,7 +233,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     async (sessionKey: string, exportTarget: "json" | "markdown" | "connector" = "json") => {
       const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
-      if (!runId) {
+      const baseResult = session?.result;
+      if (!runId || !baseResult) {
         throw new Error("Run has not been executed yet.");
       }
 
@@ -231,6 +243,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         const approved = await gateway.approveRun(runId);
         const exported = await gateway.exportRun(runId, exportTarget);
         updateSessionFromResult(sessionKey, approved, exported.artifact_ref);
+        const replay = await gateway.listRunEvents(runId, session.nextEventSequence ?? 0);
+        setSessions((current) => patchSessionState(current, sessionKey, { events: [...(current[sessionKey]?.events ?? []), ...replay.events], nextEventSequence: replay.next_sequence }));
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, sessionKey, {
@@ -255,6 +269,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       try {
         const rejected = await gateway.rejectRun(runId, note);
         updateSessionFromResult(sessionKey, rejected);
+        const replay = await gateway.listRunEvents(runId, session.nextEventSequence ?? 0);
+        setSessions((current) => patchSessionState(current, sessionKey, { events: [...(current[sessionKey]?.events ?? []), ...replay.events], nextEventSequence: replay.next_sequence }));
       } catch (error) {
         setSessions((current) =>
           patchSessionState(current, sessionKey, {
@@ -265,6 +281,39 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       }
     },
     [gateway, sessions, updateSessionFromResult]
+  );
+
+  const cancelSessionRun = useCallback(
+    async (sessionKey: string, reason = "Canceled from desktop UI") => {
+      const session = sessions[sessionKey];
+      const runId = session?.result?.run.run_id;
+      const baseResult = session?.result;
+      if (!runId || !baseResult) {
+        throw new Error("Run has not been executed yet.");
+      }
+
+      setSessions((current) => patchSessionState(current, sessionKey, { processing: true, error: undefined }));
+      try {
+        const canceled = await gateway.cancelRun(runId, reason);
+        const replay = await gateway.listRunEvents(runId, session.nextEventSequence ?? 0);
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            result: { ...baseResult, run: canceled.run },
+            events: [...(current[sessionKey]?.events ?? []), ...replay.events],
+            nextEventSequence: replay.next_sequence
+          })
+        );
+      } catch (error) {
+        setSessions((current) =>
+          patchSessionState(current, sessionKey, {
+            processing: false,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      }
+    },
+    [gateway, sessions]
   );
 
   const refreshReview = useCallback(
@@ -371,6 +420,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         editField,
         approveAndExport,
         rejectRun,
+        cancelSessionRun,
         saveSessionExport,
         revealSessionExport,
         refreshSessionReview,

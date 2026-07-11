@@ -1,7 +1,7 @@
 use dossier_desktop_lib::runtime_gateway::RuntimeGateway;
 use dossier_desktop_lib::storage::{
-    copy_artifact_to_destination, initialize_workspace, list_documents, register_document,
-    resolve_runtime_root,
+    copy_artifact_to_destination, initialize_workspace, list_artifact_manifests, list_documents,
+    register_document, resolve_runtime_root,
 };
 use std::path::PathBuf;
 
@@ -78,6 +78,13 @@ fn document_registry_persists_local_documents() {
             .join(documents[0].artifact_ref.trim_start_matches("artifact://"))
             .exists()
     );
+
+    let manifests = list_artifact_manifests(temp_dir.path()).expect("artifact manifests should list");
+    assert_eq!(manifests.len(), 1);
+    assert_eq!(manifests[0].artifact_ref, documents[0].artifact_ref);
+    assert_eq!(manifests[0].sha256, documents[0].artifact_sha256);
+    assert_eq!(manifests[0].source_type, "pdf");
+    assert_eq!(manifests[0].original_name, "invoice_demo.pdf");
 }
 
 #[test]

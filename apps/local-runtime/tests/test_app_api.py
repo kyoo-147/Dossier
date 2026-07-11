@@ -56,6 +56,32 @@ def test_runtime_api_health_and_run_lifecycle(tmp_path: Path) -> None:
     exported = client.post(f"/runs/{run_id}/export/json")
     assert exported.status_code == 200
     assert exported.json()["artifact_ref"].startswith("artifact://")
+    assert exported.json()["evidence_manifest"]["events"]
+
+
+def test_runtime_api_events_and_cancel(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path))
+    run_response = client.post(
+        "/runs",
+        json={
+            "document_id": "doc_api_cancel",
+            "mode": "generic_parse",
+            "pipeline_id": "generic_parse",
+            "pipeline_version": "0.1.0",
+        },
+    )
+    run_id = run_response.json()["run_id"]
+
+    listed = client.get(f"/runs/{run_id}/events", params={"after": 0})
+    assert listed.status_code == 200
+    assert listed.json()["events"][0]["sequence"] == 1
+
+    canceled = client.post(f"/runs/{run_id}/cancel", json={"reason": "test"})
+    assert canceled.status_code == 200
+    assert canceled.json()["run"]["status"] == "canceled"
+
+    exported = client.post(f"/runs/{run_id}/export/json")
+    assert exported.status_code == 409
 
 
 def test_runtime_api_rejects_requests_without_launch_token(tmp_path: Path) -> None:

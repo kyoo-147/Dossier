@@ -21,6 +21,9 @@ def _normalize_number(value: str) -> str:
 
 def extract_fields(document_payload: dict, ocr_result: dict, table_result: dict) -> list[dict]:
     text = str(ocr_result.get("text") or "")
+    if not text.strip() and not table_result.get("rows"):
+        return []
+
     invoice_number = _match(r"(?:invoice|hoa\s*don)\s*(?:number|no\.?|so)?\s*[:#-]?\s*([A-Z0-9-]{3,})", text)
     invoice_date = _match(r"(?:invoice\s*)?date\s*[:#-]?\s*(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})", text)
     total_amount = _match(r"total\s*(?:amount)?\s*[:#-]?\s*([\d.,]+)", text)

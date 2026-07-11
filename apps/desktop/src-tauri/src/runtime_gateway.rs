@@ -163,6 +163,27 @@ impl RuntimeGateway {
         self.post_json(&format!("/runs/{run_id}/execute"), payload).await
     }
 
+    pub async fn list_run_events(&self, run_id: &str, after: u64) -> Result<Value, String> {
+        self.client
+            .get(format!("{}/runs/{run_id}/events?after={after}", self.base_url()))
+            .header(RUNTIME_TOKEN_HEADER, &self.launch_token)
+            .send()
+            .await
+            .and_then(|response| response.error_for_status())
+            .map_err(|error| format!("runtime events request failed: {error}"))?
+            .json::<Value>()
+            .await
+            .map_err(|error| format!("runtime events JSON decode failed: {error}"))
+    }
+
+    pub async fn cancel_run(&self, run_id: &str, reason: Option<&str>) -> Result<Value, String> {
+        self.post_json(
+            &format!("/runs/{run_id}/cancel"),
+            &serde_json::json!({ "reason": reason }),
+        )
+        .await
+    }
+
     pub async fn approve_run(&self, run_id: &str) -> Result<Value, String> {
         self.post_json(
             &format!("/runs/{run_id}/approve"),

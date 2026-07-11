@@ -57,13 +57,24 @@ def run_fixture(runner: RuntimeRunner, fixture: dict) -> dict:
             "artifact_ref": artifact_ref,
         },
     )
+    export_ref = None
+    exported = False
+    if result["run"]["status"] == "needs_review":
+        result = runner.approve_run(run.run_id, "benchmark")
+    if result["run"]["status"] in {"completed", "approved"}:
+        exported_payload = runner.export_run(run.run_id, "json")
+        export_ref = exported_payload["artifact_ref"]
+        exported = True
     return {
         "fixtureId": fixture["fixtureId"],
         "fields": result["fields"],
         "warnings": result["warnings"],
         "review_tasks": result["review_tasks"],
         "run": result["run"],
-        "events": runner.events,
+        "source": result.get("source", {}),
+        "events": runner.list_run_events(run.run_id)["events"],
+        "exported": exported,
+        "export_artifact_ref": export_ref,
     }
 
 

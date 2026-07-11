@@ -29,6 +29,8 @@ pub fn run() {
             commands::ensure_runtime,
             commands::create_run,
             commands::execute_run,
+            commands::list_run_events,
+            commands::cancel_run,
             commands::approve_run,
             commands::reject_run,
             commands::list_review_tasks,

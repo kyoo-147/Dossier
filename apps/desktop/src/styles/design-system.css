@@ -152,3 +152,106 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   .agent-copy small { display: none; }.agent-row { min-height: 37px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+
+.field-status--approved::after { content: "✓"; }
+
+.document-paper--runtime {
+  min-width: 520px;
+  padding: 34px 28px 24px;
+  font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: var(--ink);
+}
+.runtime-page-kicker {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+.runtime-page-title {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+.runtime-page-meta {
+  margin-top: 5px;
+  color: var(--ink-muted);
+}
+.runtime-page-block {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 11px;
+  border: 1px solid #d8e0ef;
+  background: #fbfcff;
+}
+.runtime-page-block span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-secondary);
+}
+.runtime-page-grid {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+}
+.runtime-evidence-row {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, .75fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.runtime-evidence-row span {
+  color: var(--ink-muted);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 10px;
+}
+.runtime-evidence-row strong,
+.runtime-evidence-row em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.runtime-evidence-row em {
+  color: var(--ink-secondary);
+  font-style: normal;
+}
+.runtime-evidence-row--active {
+  border-color: #a9bff0;
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.runtime-empty-evidence {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  color: var(--ink-muted);
+  text-align: center;
+}
+.runtime-page-status {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 22px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.runtime-page-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 7px 8px;
+  background: #f4f6fa;
+  color: var(--ink-secondary);
+  font-size: 10px;
+}

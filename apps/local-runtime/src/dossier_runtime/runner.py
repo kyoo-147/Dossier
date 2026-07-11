@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+import hashlib
 from pathlib import Path
 
 from .artifacts import ArtifactStore
@@ -23,6 +24,7 @@ class RuntimeRunner:
       self._artifact_store = ArtifactStore(state_root / "artifacts")
       self._provider_registry = ProviderRegistry()
       self._events: list[dict] = []
+      self._event_sequence = 0
       self._run_outputs: dict[str, dict] = {}
       self._review_tasks: dict[str, list[ReviewTaskRecord]] = {}
       self._revisions: dict[str, list[RevisionRecord]] = {}
@@ -32,6 +34,14 @@ class RuntimeRunner:
     @property
     def events(self) -> list[dict]:
       return list(self._events)
+
+    def list_run_events(self, run_id: str, after: int = 0) -> dict:
+      events = [
+        event
+        for event in self._events
+        if event.get("run_id") == run_id and int(event.get("sequence", 0)) > after
+      ]
+      return {"events": events, "next_sequence": events[-1]["sequence"] if events else after}
 
     @property
     def provider_registry(self) -> ProviderRegistry:
@@ -97,12 +107,38 @@ class RuntimeRunner:
       self._emit("run.executed", run.trace_id, run.run_id, run.document_id, {"status": run.status})
       return result
 
+    def cancel_run(self, run_id: str, reason: str | None = None) -> dict:
+      run = self._job_store.get_run(run_id)
+      if run.status in {"completed", "failed", "canceled"}:
+        self._emit(
+          "run.cancel_ignored",
+          run.trace_id,
+          run.run_id,
+          run.document_id,
+          {"status": run.status, "reason": reason},
+        )
+        return {"run": self._serialize_run(run), "canceled": False}
+
+      run = self.update_status(run_id, "canceled", terminal=True)
+      output = self._run_outputs.get(run_id)
+      if output is not None:
+        output["run"] = self._serialize_run(run)
+      self._emit(
+        "run.canceled",
+        run.trace_id,
+        run.run_id,
+        run.document_id,
+        {"status": run.status, "reason": reason},
+      )
+      return {"run": self._serialize_run(run), "canceled": True}
+
     def _prepare_document_payload(self, document_payload: dict) -> tuple[dict, dict]:
       prepared = dict(document_payload)
       artifact_ref = str(prepared.get("artifact_ref") or "")
       text = str(prepared.get("text") or prepared.get("content") or "")
       source_summary = {
         "artifact_ref": artifact_ref or None,
+        "artifact_sha256": None,
         "text_extraction": {
           "status": "provided" if text else "not_requested",
           "adapter": "payload",
@@ -117,6 +153,7 @@ class RuntimeRunner:
       extracted_text, extraction_summary = self._extract_text_from_artifact(artifact_path)
       prepared["text"] = extracted_text
       prepared["content"] = extracted_text
+      source_summary["artifact_sha256"] = self._sha256_file(artifact_path)
       source_summary["text_extraction"] = extraction_summary
       return prepared, source_summary
 
@@ -152,6 +189,14 @@ class RuntimeRunner:
 
       return "", {"status": "unsupported_source_type", "adapter": "none", "characters": 0}
 
+    @staticmethod
+    def _sha256_file(path: Path) -> str:
+      hasher = hashlib.sha256()
+      with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+          hasher.update(chunk)
+      return hasher.hexdigest()
+
     def _extract_pdf_text(self, artifact_path: Path) -> tuple[str, str]:
       try:
         from pypdf import PdfReader  # type: ignore
@@ -180,6 +225,7 @@ class RuntimeRunner:
       )
 
     def approve_run(self, run_id: str, approved_by: str) -> dict:
+      self._ensure_run_allows_review_action(run_id)
       run = self.update_status(run_id, "approved")
       self._set_review_tasks_status(run_id, "approved")
       self._approval_audit.setdefault(run_id, []).append(
@@ -208,6 +254,7 @@ class RuntimeRunner:
       return output
 
     def reject_run(self, run_id: str, rejected_by: str, note: str | None = None) -> dict:
+      self._ensure_run_allows_review_action(run_id)
       run = self.update_status(run_id, "failed", terminal=True)
       self._set_review_tasks_status(run_id, "rejected")
       self._approval_audit.setdefault(run_id, []).append(
@@ -244,6 +291,7 @@ class RuntimeRunner:
       edited_by: str,
       note: str | None = None,
     ) -> dict:
+      self._ensure_run_allows_review_action(run_id)
       output = self._run_outputs[run_id]
       field = next((item for item in output["fields"] if item["field_id"] == field_id), None)
       if field is None:
@@ -305,10 +353,22 @@ class RuntimeRunner:
       return output
 
     def export_run(self, run_id: str, export_target: str) -> dict:
+      run_before_export = self._job_store.get_run(run_id)
+      if run_before_export.status in {"failed", "canceled"}:
+        raise RuntimeError(f"run cannot be exported from status {run_before_export.status}")
       output = self._run_outputs[run_id]
       payload = {
         "run_id": run_id,
+        "source": output.get("source"),
         "fields": [{"label": field["label"], "value": field["normalized_value"]} for field in output["fields"]],
+        "evidence_manifest": {
+          "artifact_ref": output.get("source", {}).get("artifact_ref"),
+          "artifact_sha256": output.get("source", {}).get("artifact_sha256"),
+          "events": self.list_run_events(run_id)["events"],
+          "review_tasks": output.get("review_tasks", []),
+          "approval_audit": output.get("approval_audit", []),
+          "revisions": output.get("revisions", []),
+        },
       }
 
       if export_target == "json":
@@ -328,7 +388,11 @@ class RuntimeRunner:
         {"target": export_target, "artifact_ref": artifact_ref},
       )
       output["run"] = self._serialize_run(run)
-      return {"artifact_ref": artifact_ref, "run": self._serialize_run(run)}
+      return {
+        "artifact_ref": artifact_ref,
+        "run": self._serialize_run(run),
+        "evidence_manifest": payload["evidence_manifest"],
+      }
 
     def _emit(
       self,
@@ -338,9 +402,13 @@ class RuntimeRunner:
       document_id: str | None,
       payload: dict,
     ) -> None:
+      self._event_sequence += 1
       self._events.append(
         {
+          "sequence": self._event_sequence,
+          "type": event_type,
           "event_type": event_type,
+          "status": payload.get("status"),
           "trace_id": trace_id,
           "run_id": run_id,
           "document_id": document_id,
@@ -348,6 +416,11 @@ class RuntimeRunner:
           "payload": payload,
         }
       )
+
+    def _ensure_run_allows_review_action(self, run_id: str) -> None:
+      run = self._job_store.get_run(run_id)
+      if run.status in {"failed", "canceled"}:
+        raise RuntimeError(f"run action blocked from status {run.status}")
 
     def _maybe_create_review_tasks(
       self, run: RunRecord, document_payload: dict, warnings: list[dict]

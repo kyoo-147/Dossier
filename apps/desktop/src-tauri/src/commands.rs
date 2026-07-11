@@ -225,6 +225,28 @@ pub async fn execute_run(
 }
 
 #[tauri::command]
+pub async fn list_run_events(
+    run_id: String,
+    after: u64,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
+    Ok(RuntimeActionResponse {
+        payload: state.runtime_gateway.list_run_events(&run_id, after).await?,
+    })
+}
+
+#[tauri::command]
+pub async fn cancel_run(
+    run_id: String,
+    reason: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<RuntimeActionResponse, String> {
+    Ok(RuntimeActionResponse {
+        payload: state.runtime_gateway.cancel_run(&run_id, reason.as_deref()).await?,
+    })
+}
+
+#[tauri::command]
 pub async fn approve_run(
     run_id: String,
     state: State<'_, AppState>,

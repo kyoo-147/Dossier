@@ -92,8 +92,31 @@ export interface RuntimeApprovalAuditRecord {
   revision_id: string | null;
 }
 
+export interface RuntimeSourceSummary {
+  artifact_ref?: string | null;
+  artifact_sha256?: string | null;
+  text_extraction?: {
+    status: "provided" | "extracted" | "unsupported_no_text_layer" | "unsupported_source_type" | "artifact_missing" | "ocr_adapter_missing" | "not_requested";
+    adapter: string;
+    characters: number;
+  };
+}
+
+export interface RuntimeProgressEvent {
+  sequence: number;
+  type: string;
+  event_type: string;
+  status?: string | null;
+  trace_id: string;
+  run_id: string | null;
+  document_id: string | null;
+  emitted_at: string;
+  payload: Record<string, unknown>;
+}
+
 export interface RuntimeExecutionResult {
   run: RuntimeRunRecord;
+  source?: RuntimeSourceSummary;
   fields: RuntimeFieldRecord[];
   warnings: Array<{ code: string; message: string; severity: string }>;
   review_tasks: RuntimeReviewTaskRecord[];
@@ -120,6 +143,8 @@ export interface DesktopGateway {
   }): Promise<DesktopDocumentRecord>;
   processFixture(fixture: SampleFixture): Promise<RuntimeExecutionResult>;
   processDocument(document: DesktopDocumentRecord): Promise<RuntimeExecutionResult>;
+  listRunEvents(runId: string, after?: number): Promise<{ events: RuntimeProgressEvent[]; next_sequence: number }>;
+  cancelRun(runId: string, reason?: string): Promise<{ run: RuntimeRunRecord; canceled: boolean }>;
   listReviewTasks(runId: string): Promise<Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">>;
   applyFieldEdit(runId: string, fieldId: string, newValue: string, note?: string): Promise<RuntimeExecutionResult>;
   approveRun(runId: string): Promise<RuntimeExecutionResult>;
@@ -164,6 +189,11 @@ function buildMockResult(fixture: SampleFixture): RuntimeExecutionResult {
       status: field.status,
       warning_codes: field.status === "warning" ? ["MOCK_WARNING"] : []
     })),
+    source: {
+      artifact_ref: `artifact://mock/${fixture.fileName}`,
+      artifact_sha256: "mock-sha256",
+      text_extraction: { status: "provided", adapter: "fixture", characters: fixture.workspace.fields.length }
+    },
     warnings: fixture.workspace.warnings.map((warning) => ({
       code: "MOCK_WARNING",
       message: warning,
@@ -315,6 +345,40 @@ function createBrowserMockGateway(): DesktopGateway {
         revisions: result.revisions ?? [],
         approval_audit: result.approval_audit ?? []
       };
+    },
+    async listRunEvents(runId, after = 0) {
+      const result = mockRuns.get(runId);
+      const event: RuntimeProgressEvent = {
+        sequence: after + 1,
+        type: "run.mock_replayed",
+        event_type: "run.mock_replayed",
+        status: result?.run.status ?? "missing",
+        trace_id: result?.run.trace_id ?? "mock_trace",
+        run_id: runId,
+        document_id: result?.run.document_id ?? null,
+        emitted_at: new Date().toISOString(),
+        payload: { source: "browser-mock" }
+      };
+      return { events: [event], next_sequence: event.sequence };
+    },
+    async cancelRun(runId, reason) {
+      const result = mockRuns.get(runId);
+      if (!result) throw new Error(`Mock run not found: ${runId}`);
+      result.run.status = "canceled";
+      result.approval_audit = [
+        ...(result.approval_audit ?? []),
+        {
+          approval_id: `approval_${Date.now()}`,
+          run_id: runId,
+          review_task_id: result.review_tasks[0]?.review_task_id ?? null,
+          action: "canceled",
+          actor: "browser-mock-user",
+          created_at: new Date().toISOString(),
+          note: reason ?? null,
+          revision_id: null
+        }
+      ];
+      return { run: result.run, canceled: true };
     },
     async applyFieldEdit(runId, fieldId, newValue, note) {
       const result = mockRuns.get(runId);
@@ -516,6 +580,20 @@ function createTauriGateway(): DesktopGateway {
       const response = await invokeTauri<{
         payload: Pick<RuntimeExecutionResult, "review_tasks" | "revisions" | "approval_audit">;
       }>("list_review_tasks", { run_id: runId });
+      return response.payload;
+    },
+    async listRunEvents(runId, after = 0) {
+      const response = await invokeTauri<{ payload: { events: RuntimeProgressEvent[]; next_sequence: number } }>("list_run_events", {
+        run_id: runId,
+        after
+      });
+      return response.payload;
+    },
+    async cancelRun(runId, reason) {
+      const response = await invokeTauri<{ payload: { run: RuntimeRunRecord; canceled: boolean } }>("cancel_run", {
+        run_id: runId,
+        reason
+      });
       return response.payload;
     },
     async applyFieldEdit(runId, fieldId, newValue, note) {

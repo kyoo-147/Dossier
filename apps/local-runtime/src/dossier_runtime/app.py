@@ -37,6 +37,10 @@ class RejectRunRequest(BaseModel):
     note: str | None = None
 
 
+class CancelRunRequest(BaseModel):
+    reason: str | None = None
+
+
 def create_app(state_root: Path | None = None, launch_token: str | None = None) -> FastAPI:
     resolved_state_root = state_root or Path(os.environ.get("DOSSIER_STATE_ROOT", ".dossier/runtime"))
     resolved_launch_token = launch_token if launch_token is not None else os.environ.get("DOSSIER_RUNTIME_TOKEN")
@@ -76,13 +80,27 @@ def create_app(state_root: Path | None = None, launch_token: str | None = None) 
     def execute_run(run_id: str, request: ExecuteRunRequest) -> dict[str, object]:
       return runner.execute_run(run_id, request.model_dump())
 
+    @app.get("/runs/{run_id}/events")
+    def list_run_events(run_id: str, after: int = 0) -> dict[str, object]:
+      return runner.list_run_events(run_id, after)
+
+    @app.post("/runs/{run_id}/cancel")
+    def cancel_run(run_id: str, request: CancelRunRequest | None = None) -> dict[str, object]:
+      return runner.cancel_run(run_id, request.reason if request else None)
+
     @app.post("/runs/{run_id}/approve")
     def approve_run(run_id: str) -> dict[str, object]:
-      return runner.approve_run(run_id, "desktop-user")
+      try:
+        return runner.approve_run(run_id, "desktop-user")
+      except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.post("/runs/{run_id}/reject")
     def reject_run(run_id: str, request: RejectRunRequest) -> dict[str, object]:
-      return runner.reject_run(run_id, "desktop-user", request.note)
+      try:
+        return runner.reject_run(run_id, "desktop-user", request.note)
+      except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.get("/runs/{run_id}/review")
     def list_review_tasks(run_id: str) -> dict[str, object]:
@@ -90,10 +108,16 @@ def create_app(state_root: Path | None = None, launch_token: str | None = None) 
 
     @app.post("/runs/{run_id}/review/edit")
     def apply_field_edit(run_id: str, request: FieldEditRequest) -> dict[str, object]:
-      return runner.apply_field_edit(run_id, request.field_id, request.new_value, "desktop-user", request.note)
+      try:
+        return runner.apply_field_edit(run_id, request.field_id, request.new_value, "desktop-user", request.note)
+      except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.post("/runs/{run_id}/export/{export_target}")
     def export_run(run_id: str, export_target: str) -> dict[str, object]:
-      return runner.export_run(run_id, export_target)
+      try:
+        return runner.export_run(run_id, export_target)
+      except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
     return app

@@ -26,6 +26,30 @@ export const DocumentSchema = z.object({
 
 export type Document = z.infer<typeof DocumentSchema>;
 
+export const ArtifactManifestSchema = z.object({
+  artifact_ref: z.string(),
+  sha256: z.string(),
+  size: z.number().int().nonnegative(),
+  source_type: z.string(),
+  original_name: z.string(),
+  stored_path: z.string(),
+  created_at: z.string()
+});
+
+export type ArtifactManifest = z.infer<typeof ArtifactManifestSchema>;
+
+export const TextExtractionStatusSchema = z.enum([
+  "provided",
+  "extracted",
+  "unsupported_no_text_layer",
+  "unsupported_source_type",
+  "artifact_missing",
+  "ocr_adapter_missing",
+  "not_requested"
+]);
+
+export type TextExtractionStatus = z.infer<typeof TextExtractionStatusSchema>;
+
 export const PageSchema = z.object({
   page_id: z.string(),
   document_id: z.string(),
