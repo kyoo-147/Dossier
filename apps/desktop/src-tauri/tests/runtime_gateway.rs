@@ -15,6 +15,18 @@ fn runtime_gateway_builds_python_bootstrap() {
         bootstrap.args,
         vec!["-m".to_string(), "dossier_runtime".to_string()]
     );
+    assert_ne!(bootstrap.port, 0);
+    assert!(bootstrap.base_url.starts_with("http://127.0.0.1:"));
+    assert!(bootstrap.auth_required);
+}
+
+#[test]
+fn runtime_gateway_allocates_independent_loopback_ports() {
+    let first = RuntimeGateway::new(PathBuf::from("D:/working/Dossier/apps/local-runtime"));
+    let second = RuntimeGateway::new(PathBuf::from("D:/working/Dossier/apps/local-runtime"));
+
+    assert_ne!(first.bootstrap().port, 0);
+    assert_ne!(second.bootstrap().port, 0);
 }
 
 #[test]

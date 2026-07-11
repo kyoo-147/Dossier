@@ -22,4 +22,24 @@ test.describe("Screenshot Regression", () => {
       maxDiffPixelRatio: 0.02
     });
   });
+
+  test("Inbox Page Layout", async ({ page }) => {
+    await page.goto("/#/inbox");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page).toHaveScreenshot("inbox-1440x960.png", {
+      fullPage: true,
+      maxDiffPixelRatio: 0.02
+    });
+  });
+
+  test("Settings Page Layout", async ({ page }) => {
+    await page.goto("/#/settings");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page).toHaveScreenshot("settings-1440x960.png", {
+      fullPage: true,
+      maxDiffPixelRatio: 0.02
+    });
+  });
 });

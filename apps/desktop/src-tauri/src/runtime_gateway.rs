@@ -1,14 +1,17 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
+use uuid::Uuid;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-const DEFAULT_RUNTIME_PORT: u16 = 47821;
+const FALLBACK_RUNTIME_PORT: u16 = 47821;
+const RUNTIME_TOKEN_HEADER: &str = "x-dossier-runtime-token";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -19,6 +22,7 @@ pub struct RuntimeBootstrap {
     pub working_directory: String,
     pub base_url: String,
     pub port: u16,
+    pub auth_required: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -29,12 +33,15 @@ pub struct RuntimeStatus {
     pub runtime_running: bool,
     pub base_url: String,
     pub port: u16,
+    pub auth_required: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct RuntimeGateway {
     runtime_root: PathBuf,
     client: Client,
+    port: u16,
+    launch_token: String,
 }
 
 impl RuntimeGateway {
@@ -45,6 +52,8 @@ impl RuntimeGateway {
                 .timeout(Duration::from_secs(30))
                 .build()
                 .expect("runtime gateway HTTP client should be constructed"),
+            port: allocate_loopback_port(),
+            launch_token: Uuid::new_v4().to_string(),
         }
     }
 
@@ -68,7 +77,8 @@ impl RuntimeGateway {
             args: vec!["-m".to_string(), "dossier_runtime".to_string()],
             working_directory: self.runtime_root.display().to_string(),
             base_url: self.base_url(),
-            port: DEFAULT_RUNTIME_PORT,
+            port: self.port,
+            auth_required: true,
         }
     }
 
@@ -79,7 +89,8 @@ impl RuntimeGateway {
             workspace_initialized: workspace_root.is_some_and(Path::exists),
             runtime_running: self.health_check().await.is_ok(),
             base_url: self.base_url(),
-            port: DEFAULT_RUNTIME_PORT,
+            port: self.port,
+            auth_required: true,
         }
     }
 
@@ -105,7 +116,8 @@ impl RuntimeGateway {
             .current_dir(&self.runtime_root)
             .env("PYTHONPATH", "src")
             .env("DOSSIER_RUNTIME_HOST", "127.0.0.1")
-            .env("DOSSIER_RUNTIME_PORT", DEFAULT_RUNTIME_PORT.to_string())
+            .env("DOSSIER_RUNTIME_PORT", self.port.to_string())
+            .env("DOSSIER_RUNTIME_TOKEN", &self.launch_token)
             .env("DOSSIER_STATE_ROOT", state_dir.display().to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -133,6 +145,7 @@ impl RuntimeGateway {
     pub async fn health_check(&self) -> Result<Value, String> {
         self.client
             .get(format!("{}/health", self.base_url()))
+            .header(RUNTIME_TOKEN_HEADER, &self.launch_token)
             .send()
             .await
             .and_then(|response| response.error_for_status())
@@ -168,6 +181,7 @@ impl RuntimeGateway {
     pub async fn list_review_tasks(&self, run_id: &str) -> Result<Value, String> {
         self.client
             .get(format!("{}/runs/{run_id}/review", self.base_url()))
+            .header(RUNTIME_TOKEN_HEADER, &self.launch_token)
             .send()
             .await
             .and_then(|response| response.error_for_status())
@@ -206,6 +220,7 @@ impl RuntimeGateway {
     async fn post_json(&self, path: &str, payload: &Value) -> Result<Value, String> {
         self.client
             .post(format!("{}{}", self.base_url(), path))
+            .header(RUNTIME_TOKEN_HEADER, &self.launch_token)
             .json(payload)
             .send()
             .await
@@ -217,6 +232,13 @@ impl RuntimeGateway {
     }
 
     fn base_url(&self) -> String {
-        format!("http://127.0.0.1:{DEFAULT_RUNTIME_PORT}")
+        format!("http://127.0.0.1:{}", self.port)
     }
+}
+
+fn allocate_loopback_port() -> u16 {
+    TcpListener::bind(("127.0.0.1", 0))
+        .and_then(|listener| listener.local_addr())
+        .map(|address| address.port())
+        .unwrap_or(FALLBACK_RUNTIME_PORT)
 }

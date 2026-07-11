@@ -17,7 +17,7 @@ export function renderBenchmarkReport(report: BenchmarkReport): string {
     "## Fixtures",
     ...report.observations.map(
       (item) =>
-        `- ${item.fixtureId}: ${item.matchedFields}/${item.totalFields} fields matched, review=${item.reviewTriggered}, latency=${item.latencyMs} ms`
+        `- ${item.fixtureId}: ${item.matchedFields}/${item.totalFields} fields matched, source=${item.source}, review=${item.reviewTriggered}, latency=${item.latencyMs} ms`
     )
   ].join("\n");
 }

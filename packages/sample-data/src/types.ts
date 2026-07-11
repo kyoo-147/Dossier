@@ -23,6 +23,7 @@ export interface SampleFixture {
   industry: SampleDataIndustry;
   mode: "quick_ocr" | "generic_parse" | "schema_workflow";
   fileName: string;
+  sourceText: string;
   expectedFields: SampleFieldExpectation[];
   expectedReview: boolean;
   expectedLatencyMs: number;

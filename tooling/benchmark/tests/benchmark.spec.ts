@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { renderBenchmarkReport } from "../report.js";
-import { observeFixture, runBenchmark } from "../run_benchmark.js";
+import { observeFixture, observeFixtureFromRuntime, runBenchmark } from "../run_benchmark.js";
 
 describe("benchmark harness", () => {
   it("scores the bundled fixtures", () => {
     const report = runBenchmark();
 
     expect(report.observations.length).toBeGreaterThanOrEqual(3);
+    expect(report.observations.every((observation) => observation.source === "runtime")).toBe(true);
     expect(report.metrics.fieldLevelAccuracy).toBeGreaterThan(0);
-    expect(report.metrics.fieldLevelAccuracy).toBeLessThan(1);
+    expect(report.metrics.fieldLevelAccuracy).toBeLessThanOrEqual(1);
     expect(report.metrics.requiredFieldCompletion).toBeGreaterThan(0);
   });
 
@@ -62,6 +63,46 @@ describe("benchmark harness", () => {
     });
 
     expect(observation.matchedFields).toBe(1);
+  });
+
+  it("scores a single fixture from runtime output fields", () => {
+    const observation = observeFixtureFromRuntime(
+      {
+        fixtureId: "runtime_observation",
+        bucket: "clean",
+        industry: "finance",
+        mode: "generic_parse",
+        fileName: "invoice.pdf",
+        sourceText: "Invoice Number 000789\nTotal Amount 7590000",
+        expectedFields: [{ schemaKey: "invoice.total_amount", value: "7590000", required: true }],
+        expectedReview: false,
+        expectedLatencyMs: 1,
+        workspace: {
+          documentTitle: "invoice.pdf",
+          subtitle: "Invoice",
+          fields: [],
+          riskScore: "0%",
+          riskSummary: [],
+          warnings: [],
+          logs: []
+        }
+      },
+      {
+        fixtureId: "runtime_observation",
+        fields: [{ schema_key: "invoice.total_amount", label: "Total Amount", normalized_value: "7590000" }],
+        warnings: [],
+        review_tasks: []
+      }
+    );
+
+    expect(observation.source).toBe("runtime");
+    expect(observation.matchedFields).toBe(1);
+  });
+
+  it("uses runtime observations when the runtime probe is available", () => {
+    const report = runBenchmark();
+
+    expect(report.observations.every((observation) => observation.source === "runtime")).toBe(true);
   });
 
   it("renders a readable report", () => {

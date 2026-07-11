@@ -7,6 +7,7 @@ export interface DesktopRuntimeStatus {
   runtime_running: boolean;
   base_url: string;
   port: number;
+  auth_required: boolean;
 }
 
 export interface DesktopWorkspacePaths {
@@ -205,7 +206,8 @@ function createBrowserMockGateway(): DesktopGateway {
           workspace_initialized: true,
           runtime_running: true,
           base_url: "mock://runtime",
-          port: 0
+          port: 0,
+          auth_required: false
         }
       };
     },
@@ -223,7 +225,8 @@ function createBrowserMockGateway(): DesktopGateway {
         workspace_initialized: true,
         runtime_running: true,
         base_url: "mock://runtime",
-        port: 0
+        port: 0,
+        auth_required: false
       };
     },
     async pickDocumentSource() {

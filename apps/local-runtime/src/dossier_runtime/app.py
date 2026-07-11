@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .runner import RuntimeRunner
@@ -36,11 +36,22 @@ class RejectRunRequest(BaseModel):
     note: str | None = None
 
 
-def create_app(state_root: Path | None = None) -> FastAPI:
+def create_app(state_root: Path | None = None, launch_token: str | None = None) -> FastAPI:
     resolved_state_root = state_root or Path(os.environ.get("DOSSIER_STATE_ROOT", ".dossier/runtime"))
+    resolved_launch_token = launch_token if launch_token is not None else os.environ.get("DOSSIER_RUNTIME_TOKEN")
     runner = RuntimeRunner(resolved_state_root)
 
-    app = FastAPI(title="Dossier Local Runtime", version="0.1.0")
+    def require_runtime_token(x_dossier_runtime_token: str | None = Header(default=None)) -> None:
+      if not resolved_launch_token:
+        return
+      if x_dossier_runtime_token != resolved_launch_token:
+        raise HTTPException(status_code=401, detail="invalid runtime launch token")
+
+    app = FastAPI(
+      title="Dossier Local Runtime",
+      version="0.1.0",
+      dependencies=[Depends(require_runtime_token)],
+    )
     app.state.runner = runner
 
     @app.get("/health")

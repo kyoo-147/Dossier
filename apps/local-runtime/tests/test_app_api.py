@@ -56,3 +56,14 @@ def test_runtime_api_health_and_run_lifecycle(tmp_path: Path) -> None:
     exported = client.post(f"/runs/{run_id}/export/json")
     assert exported.status_code == 200
     assert exported.json()["artifact_ref"].startswith("artifact://")
+
+
+def test_runtime_api_rejects_requests_without_launch_token(tmp_path: Path) -> None:
+    client = TestClient(create_app(tmp_path, launch_token="test-token"))
+
+    unauthorized = client.get("/health")
+    assert unauthorized.status_code == 401
+
+    authorized = client.get("/health", headers={"x-dossier-runtime-token": "test-token"})
+    assert authorized.status_code == 200
+    assert authorized.json()["status"] == "ok"

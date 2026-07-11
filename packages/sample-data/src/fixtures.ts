@@ -7,6 +7,8 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "finance",
     mode: "generic_parse",
     fileName: "invoice_789.pdf",
+    sourceText:
+      "Invoice Number 000789\nInvoice Date 05/05/2024\nSeller Tax Code 0101234567\nTotal Amount 7590000\nMay in Canon LBP 2900, 2, 3795000",
     expectedFields: [
       { schemaKey: "invoice.number", value: "000789", required: true },
       { schemaKey: "invoice.date", value: "2024-05-05", required: true },
@@ -44,6 +46,8 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "finance",
     mode: "schema_workflow",
     fileName: "invoice_risk_021.pdf",
+    sourceText:
+      "Invoice Number 000021\nInvoice Date 07/06/2026\nTotal Amount 12000000\nConsulting service, 1, 9000000",
     expectedFields: [
       { schemaKey: "invoice.number", value: "000021", required: true },
       { schemaKey: "invoice.total_amount", value: "12000000", required: true }
@@ -74,6 +78,8 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "healthcare",
     mode: "schema_workflow",
     fileName: "hospital_intake_001.pdf",
+    sourceText:
+      "Patient Name Nguyen Van A\nPatient ID BN-001\nEncounter Date 09/07/2026\nApproval required before HIS update",
     expectedFields: [
       { schemaKey: "patient.name", value: "Nguyen Van A", required: true },
       { schemaKey: "patient.id", value: "BN-001", required: true }
@@ -104,6 +110,7 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "healthcare",
     mode: "quick_ocr",
     fileName: "rx_handwriting_003.jpg",
+    sourceText: "Paracetamol 500mg\nTake one tablet after meal",
     expectedFields: [{ schemaKey: "document.text", value: "Paracetamol", required: true }],
     expectedReview: false,
     expectedLatencyMs: 1800,
@@ -123,6 +130,7 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "enterprise",
     mode: "quick_ocr",
     fileName: "internal_request_004.pdf",
+    sourceText: "Internal Request\nDepartment Operations\nFast capture complete",
     expectedFields: [{ schemaKey: "document.title", value: "Internal Request", required: true }],
     expectedReview: false,
     expectedLatencyMs: 1500,
@@ -142,6 +150,8 @@ export const sampleFixtures: SampleFixture[] = [
     industry: "enterprise",
     mode: "schema_workflow",
     fileName: "internal_request_noisy_005.pdf",
+    sourceText:
+      "Document Owner Operations\nRequestor Le Thi B\nLow confidence requestor field\nReview required before workflow handoff",
     expectedFields: [
       { schemaKey: "document.owner", value: "Operations", required: true },
       { schemaKey: "approval.requestor", value: "Le Thi B", required: true }
