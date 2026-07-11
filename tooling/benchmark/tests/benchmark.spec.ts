@@ -8,7 +8,7 @@ describe("benchmark harness", () => {
     const report = runBenchmark();
 
     expect(report.observations.length).toBeGreaterThanOrEqual(3);
-    expect(report.observations.every((observation) => observation.source === "runtime")).toBe(true);
+    expect(report.observations.every((observation) => observation.source === "runtime_artifact")).toBe(true);
     expect(report.metrics.fieldLevelAccuracy).toBeGreaterThan(0);
     expect(report.metrics.fieldLevelAccuracy).toBeLessThanOrEqual(1);
     expect(report.metrics.requiredFieldCompletion).toBeGreaterThan(0);
@@ -95,14 +95,14 @@ describe("benchmark harness", () => {
       }
     );
 
-    expect(observation.source).toBe("runtime");
+    expect(observation.source).toBe("runtime_artifact");
     expect(observation.matchedFields).toBe(1);
   });
 
   it("uses runtime observations when the runtime probe is available", () => {
     const report = runBenchmark();
 
-    expect(report.observations.every((observation) => observation.source === "runtime")).toBe(true);
+    expect(report.observations.every((observation) => observation.source === "runtime_artifact")).toBe(true);
   });
 
   it("renders a readable report", () => {

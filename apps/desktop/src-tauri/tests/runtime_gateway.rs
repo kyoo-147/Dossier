@@ -69,6 +69,15 @@ fn document_registry_persists_local_documents() {
     assert_eq!(documents[0].document_id, record.document_id);
     assert_eq!(documents[0].file_name, "invoice_demo.pdf");
     assert_eq!(documents[0].mode_hint, "generic_parse");
+    assert!(documents[0].artifact_ref.starts_with("artifact://"));
+    assert_eq!(documents[0].artifact_size, 4);
+    assert!(
+        temp_dir
+            .path()
+            .join(".dossier/artifacts")
+            .join(documents[0].artifact_ref.trim_start_matches("artifact://"))
+            .exists()
+    );
 }
 
 #[test]

@@ -25,7 +25,7 @@ describe("workspace shell", () => {
     });
 
     expect(screen.getByText("Dossier")).toBeInTheDocument();
-    expect(screen.getByText("Agentic Document Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Workspace")).toBeInTheDocument();
     expect(screen.getByTestId("workstation-shell")).toBeInTheDocument();
     expect(screen.getByTestId("document-rail")).toBeInTheDocument();
     expect(screen.getByTestId("document-viewer")).toBeInTheDocument();

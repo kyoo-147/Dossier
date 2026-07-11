@@ -21,3 +21,65 @@ def test_runner_updates_run_status_and_writes_artifact(tmp_path: Path) -> None:
 
     assert updated.status == "running"
     assert artifact_ref.startswith("artifact://")
+
+
+def test_runner_executes_from_text_artifact(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    artifact_ref = runner.create_artifact(
+        b"Invoice Number 000789\nInvoice Date 05/05/2024\nTotal Amount 7590000",
+        suffix=".txt",
+    )
+    run = runner.create_run("doc_text", "generic_parse", "generic_parse", "0.1.0")
+
+    result = runner.execute_run(
+        run.run_id,
+        {
+            "document_id": "doc_text",
+            "file_name": "renamed_upload.txt",
+            "source_type": "text",
+            "artifact_ref": artifact_ref,
+            "page_count": 1,
+            "has_schema": False,
+        },
+    )
+
+    assert result["source"]["artifact_ref"] == artifact_ref
+    assert result["source"]["text_extraction"]["status"] == "extracted"
+    assert [field["schema_key"] for field in result["fields"]] == [
+        "invoice.number",
+        "invoice.date",
+        "invoice.total_amount",
+    ]
+
+
+def test_runner_extracts_text_from_text_native_pdf_artifact(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    pdf_payload = b"""%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj
+4 0 obj << /Length 97 >> stream
+BT /F1 12 Tf 72 720 Td (Invoice Number 000789) Tj T* (Invoice Date 05/05/2024) Tj T* (Total Amount 7590000) Tj ET
+endstream endobj
+trailer << /Root 1 0 R >>
+%%EOF"""
+    artifact_ref = runner.create_artifact(pdf_payload, suffix=".pdf")
+    run = runner.create_run("doc_pdf", "generic_parse", "generic_parse", "0.1.0")
+
+    result = runner.execute_run(
+        run.run_id,
+        {
+            "document_id": "doc_pdf",
+            "file_name": "renamed_upload.pdf",
+            "source_type": "pdf",
+            "artifact_ref": artifact_ref,
+            "page_count": 1,
+            "has_schema": False,
+        },
+    )
+
+    assert result["source"]["text_extraction"]["status"] == "extracted"
+    assert result["source"]["text_extraction"]["adapter"] in {"pypdf", "pdf_literal_text"}
+    assert {field["schema_key"]: field["normalized_value"] for field in result["fields"]}[
+        "invoice.total_amount"
+    ] == "7590000"

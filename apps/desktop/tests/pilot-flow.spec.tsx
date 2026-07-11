@@ -126,7 +126,7 @@ describe("pilot flows", () => {
     fireEvent.click(screen.getByText("Run local pipeline"));
     await waitFor(() => expect(screen.getByText(/Run mock_local_/)).toBeInTheDocument());
 
-    fireEvent.click(screen.getByText("Reviewed"));
+    fireEvent.click(screen.getByText("Review"));
     await waitFor(() => expect(screen.getByText("Local review queue")).toBeInTheDocument());
     fireEvent.click(screen.getByText("needs-review.pdf"));
 
@@ -159,7 +159,7 @@ describe("pilot flows", () => {
     fireEvent.click(screen.getByText("Add document"));
     await waitFor(() => expect(screen.getByText("all-docs-demo.pdf")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByText("All Documents"));
+    fireEvent.click(screen.getByText("Documents"));
     await waitFor(() => expect(screen.getByText("All documents")).toBeInTheDocument());
     expect(screen.getByText("all-docs-demo.pdf")).toBeInTheDocument();
   });
@@ -186,7 +186,7 @@ describe("pilot flows", () => {
   it("renders quick OCR entry demo list", async () => {
     renderRoute("/quick-ocr", <QuickOcrPage />);
     await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
-    expect(screen.getByText("Quick OCR")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quick OCR" })).toBeInTheDocument();
     expect(screen.getByText("rx_handwriting_003.jpg")).toBeInTheDocument();
   });
 });

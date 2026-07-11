@@ -1,4 +1,4 @@
-export function DesktopTopbar({ runtimeLabel, runtimeError }: { runtimeLabel: string; runtimeError: boolean }) {
+export function DesktopTopbar({ title, runtimeLabel, runtimeError }: { title: string; runtimeLabel: string; runtimeError: boolean }) {
   return (
     <header className="desktop-topbar">
       <div className="window-controls" aria-hidden="true">
@@ -8,7 +8,7 @@ export function DesktopTopbar({ runtimeLabel, runtimeError }: { runtimeLabel: st
       </div>
       <button className="icon-button menu-button" aria-label="Toggle navigation"><span /><span /><span /></button>
       <div className="app-wordmark">Dossier</div>
-      <div className="app-product-name">Agentic Document Intelligence</div>
+      <div className="app-product-name">{title}</div>
       <div className={`runtime-state ${runtimeError ? "runtime-state--error" : ""}`}>
         <span className="runtime-dot" />
         {runtimeLabel}

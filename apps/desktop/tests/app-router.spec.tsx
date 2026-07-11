@@ -21,7 +21,7 @@ describe("app router", () => {
     expect(screen.getByTestId("standard-shell")).toBeInTheDocument();
     expect(screen.queryByTestId("workstation-shell")).not.toBeInTheDocument();
     expect(screen.getByText("Agents")).toBeInTheDocument();
-    expect(screen.getByText("Quick OCR")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quick OCR" })).toBeInTheDocument();
     expect(screen.queryByText("Pilot demo inbox")).not.toBeInTheDocument();
   });
 

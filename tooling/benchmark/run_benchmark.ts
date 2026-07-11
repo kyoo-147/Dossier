@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 export interface BenchmarkObservation {
   fixtureId: string;
-  source: "runtime" | "workspace_fixture";
+  source: "runtime_artifact" | "workspace_fixture";
   matchedFields: number;
   totalFields: number;
   requiredFields: number;
@@ -176,7 +176,7 @@ export function observeFixtureFromRuntime(
     runtimeFieldMap(result),
     result.warnings.length > 0 || result.review_tasks.length > 0,
     result.elapsedMs ?? fixture.expectedLatencyMs,
-    "runtime"
+    "runtime_artifact"
   );
 }
 

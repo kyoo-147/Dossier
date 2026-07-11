@@ -1,5 +1,7 @@
+use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -16,6 +18,12 @@ pub struct DesktopDocumentRecord {
     pub file_name: String,
     pub source_path: String,
     pub source_type: String,
+    #[serde(default)]
+    pub artifact_ref: String,
+    #[serde(default)]
+    pub artifact_sha256: String,
+    #[serde(default)]
+    pub artifact_size: u64,
     pub page_count: u32,
     pub has_schema: bool,
     pub mode_hint: String,
@@ -97,15 +105,20 @@ pub fn register_document(
         .as_str()
     {
         "png" | "jpg" | "jpeg" | "tif" | "tiff" | "bmp" => "image",
+        "txt" | "md" | "csv" => "text",
         _ => "pdf",
     }
     .to_string();
+    let artifact = import_source_artifact(workspace_root, source_path)?;
 
     let record = DesktopDocumentRecord {
         document_id: format!("doc_{}", Uuid::new_v4().simple()),
         file_name,
         source_path: source_path.display().to_string(),
         source_type,
+        artifact_ref: artifact.artifact_ref,
+        artifact_sha256: artifact.sha256,
+        artifact_size: artifact.size,
         page_count,
         has_schema,
         mode_hint: mode_hint.to_string(),
@@ -119,6 +132,51 @@ pub fn register_document(
     documents.push(record.clone());
     save_documents(workspace_root, &documents)?;
     Ok(record)
+}
+
+struct ImportedArtifact {
+    artifact_ref: String,
+    sha256: String,
+    size: u64,
+}
+
+fn import_source_artifact(
+    workspace_root: &Path,
+    source_path: &Path,
+) -> std::io::Result<ImportedArtifact> {
+    let mut source = fs::File::open(source_path)?;
+    let mut hasher = Sha256::new();
+    let mut size = 0_u64;
+    let mut buffer = [0_u8; 8192];
+
+    loop {
+        let read = source.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        size += read as u64;
+    }
+
+    let sha256 = format!("{:x}", hasher.finalize());
+    let suffix = source_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_else(|| ".bin".to_string());
+    let artifact_name = format!("{sha256}{suffix}");
+    let artifacts_dir = workspace_root.join(".dossier").join("artifacts");
+    fs::create_dir_all(&artifacts_dir)?;
+    let target = artifacts_dir.join(&artifact_name);
+    if !target.exists() {
+        fs::copy(source_path, target)?;
+    }
+
+    Ok(ImportedArtifact {
+        artifact_ref: format!("artifact://{artifact_name}"),
+        sha256,
+        size,
+    })
 }
 
 pub fn copy_artifact_to_destination(

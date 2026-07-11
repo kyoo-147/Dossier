@@ -20,6 +20,7 @@ class ExecuteRunRequest(BaseModel):
     document_id: str
     file_name: str
     source_type: str = "pdf"
+    artifact_ref: str | None = None
     page_count: int = 1
     has_schema: bool = False
     text: str | None = None

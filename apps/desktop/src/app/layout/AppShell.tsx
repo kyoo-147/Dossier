@@ -11,6 +11,7 @@ export function AppShell() {
   const { booting, bootstrapError, kernelStatus, mode } = useRuntimeContext();
   const { pathname } = useLocation();
   const workstation = pathname === "/workspace" || pathname === "/review";
+  const topbarTitle = pathname === "/review" ? "Invoice review" : pathname === "/workspace" ? "Workspace" : "Agentic Document Intelligence";
   const modeLabel = describeRuntimeMode(mode);
   const runtimeLabel = bootstrapError
     ? "Runtime error"
@@ -22,7 +23,7 @@ export function AppShell() {
 
   return (
     <div className="desktop-frame">
-      <DesktopTopbar runtimeLabel={runtimeLabel} runtimeError={Boolean(bootstrapError)} />
+      <DesktopTopbar title={topbarTitle} runtimeLabel={runtimeLabel} runtimeError={Boolean(bootstrapError)} />
       <PrimarySidebar />
       <main className="desktop-content">
         <div

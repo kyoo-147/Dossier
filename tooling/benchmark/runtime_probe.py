@@ -15,7 +15,31 @@ if str(RUNTIME_SRC) not in sys.path:
 from dossier_runtime.runner import RuntimeRunner  # noqa: E402
 
 
+def artifact_payload_for_fixture(fixture: dict) -> bytes:
+    source_text = fixture.get("sourceText", "")
+    suffix = Path(fixture["fileName"]).suffix.lower()
+    if suffix == ".pdf":
+        escaped_lines = [
+            line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            for line in source_text.splitlines()
+        ]
+        text_ops = " T* ".join(f"({line}) Tj" for line in escaped_lines if line)
+        stream = f"BT /F1 12 Tf 72 720 Td {text_ops} ET"
+        return f"""%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj
+4 0 obj << /Length {len(stream)} >> stream
+{stream}
+endstream endobj
+trailer << /Root 1 0 R >>
+%%EOF""".encode("utf-8")
+    return source_text.encode("utf-8")
+
+
 def run_fixture(runner: RuntimeRunner, fixture: dict) -> dict:
+    suffix = Path(fixture["fileName"]).suffix or ".txt"
+    artifact_ref = runner.create_artifact(artifact_payload_for_fixture(fixture), suffix=suffix)
     run = runner.create_run(
         fixture["fixtureId"],
         fixture["mode"],
@@ -30,7 +54,7 @@ def run_fixture(runner: RuntimeRunner, fixture: dict) -> dict:
             "source_type": "image" if fixture["fileName"].lower().endswith((".jpg", ".jpeg", ".png")) else "pdf",
             "page_count": 1,
             "has_schema": fixture["mode"] == "schema_workflow",
-            "text": fixture.get("sourceText", ""),
+            "artifact_ref": artifact_ref,
         },
     )
     return {

@@ -26,6 +26,9 @@ export interface DesktopDocumentRecord {
   file_name: string;
   source_path: string;
   source_type: string;
+  artifact_ref: string;
+  artifact_sha256: string;
+  artifact_size: number;
   page_count: number;
   has_schema: boolean;
   mode_hint: string;
@@ -242,6 +245,9 @@ function createBrowserMockGateway(): DesktopGateway {
         file_name: fileName,
         source_path: input.sourcePath,
         source_type: fileName.toLowerCase().endsWith(".pdf") ? "pdf" : "image",
+        artifact_ref: `artifact://mock/${fileName}`,
+        artifact_sha256: "mock-sha256",
+        artifact_size: 0,
         page_count: input.pageCount,
         has_schema: input.hasSchema,
         mode_hint: input.modeHint,
@@ -479,6 +485,7 @@ function createTauriGateway(): DesktopGateway {
         document_id: fixture.fixtureId,
         file_name: fixture.fileName,
         source_type: fixture.fileName.endsWith(".jpg") ? "image" : "pdf",
+        artifact_ref: null,
         page_count: fixture.workspace.subtitle.includes("2 pages") ? 2 : 1,
         has_schema: fixture.mode === "schema_workflow"
       });
@@ -498,6 +505,7 @@ function createTauriGateway(): DesktopGateway {
         document_id: document.document_id,
         file_name: document.file_name,
         source_type: document.source_type,
+        artifact_ref: document.artifact_ref,
         page_count: document.page_count,
         has_schema: document.has_schema
       });

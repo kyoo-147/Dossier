@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 
@@ -63,14 +64,15 @@ class RuntimeRunner:
     def execute_run(self, run_id: str, document_payload: dict) -> dict:
       run = self.update_status(run_id, "queued")
       run = self.update_status(run_id, "running")
+      prepared_payload, source_summary = self._prepare_document_payload(document_payload)
 
-      probe_result = self.provider_registry.get_by_type("probe").handler(document_payload)
-      layout_result = self.provider_registry.get_by_type("layout").handler(document_payload)
-      ocr_result = self.provider_registry.get_by_type("ocr_printed").handler(document_payload)
-      table_result = self.provider_registry.get_by_type("table_parser").handler(document_payload)
+      probe_result = self.provider_registry.get_by_type("probe").handler(prepared_payload)
+      layout_result = self.provider_registry.get_by_type("layout").handler(prepared_payload)
+      ocr_result = self.provider_registry.get_by_type("ocr_printed").handler(prepared_payload)
+      table_result = self.provider_registry.get_by_type("table_parser").handler(prepared_payload)
 
-      fields = extract_fields(document_payload, ocr_result, table_result)
-      warnings = validate_fields(document_payload, fields, table_result)
+      fields = extract_fields(prepared_payload, ocr_result, table_result)
+      warnings = validate_fields(prepared_payload, fields, table_result)
       repair_result = run_repair_pass(fields, warnings)
       final_warnings = repair_result["remaining_warnings"]
       review_tasks = self._maybe_create_review_tasks(run, document_payload, final_warnings)
@@ -79,6 +81,7 @@ class RuntimeRunner:
 
       result = {
         "run": self._serialize_run(run),
+        "source": source_summary,
         "probe": probe_result,
         "layout": layout_result,
         "ocr": ocr_result,
@@ -93,6 +96,88 @@ class RuntimeRunner:
       self._run_outputs[run_id] = result
       self._emit("run.executed", run.trace_id, run.run_id, run.document_id, {"status": run.status})
       return result
+
+    def _prepare_document_payload(self, document_payload: dict) -> tuple[dict, dict]:
+      prepared = dict(document_payload)
+      artifact_ref = str(prepared.get("artifact_ref") or "")
+      text = str(prepared.get("text") or prepared.get("content") or "")
+      source_summary = {
+        "artifact_ref": artifact_ref or None,
+        "text_extraction": {
+          "status": "provided" if text else "not_requested",
+          "adapter": "payload",
+          "characters": len(text),
+        },
+      }
+
+      if text or not artifact_ref:
+        return prepared, source_summary
+
+      artifact_path = self._resolve_artifact_path(artifact_ref)
+      extracted_text, extraction_summary = self._extract_text_from_artifact(artifact_path)
+      prepared["text"] = extracted_text
+      prepared["content"] = extracted_text
+      source_summary["text_extraction"] = extraction_summary
+      return prepared, source_summary
+
+    def _resolve_artifact_path(self, artifact_ref: str) -> Path:
+      runtime_path = self._artifact_store.resolve_ref(artifact_ref)
+      if runtime_path.exists():
+        return runtime_path
+
+      workspace_artifacts = self._state_root.parent.parent / "artifacts"
+      artifact_name = artifact_ref.split("/")[-1]
+      workspace_path = workspace_artifacts / artifact_name
+      if workspace_path.exists():
+        return workspace_path
+
+      raise FileNotFoundError(f"artifact not found: {artifact_ref}")
+
+    def _extract_text_from_artifact(self, artifact_path: Path) -> tuple[str, dict]:
+      suffix = artifact_path.suffix.lower()
+      if suffix in {".txt", ".md", ".csv"}:
+        text = artifact_path.read_text(encoding="utf-8", errors="replace")
+        return text, {"status": "extracted", "adapter": "plain_text", "characters": len(text)}
+
+      if suffix == ".pdf":
+        text, adapter = self._extract_pdf_text(artifact_path)
+        return (
+          text,
+          {
+            "status": "extracted" if text.strip() else "unsupported_no_text_layer",
+            "adapter": adapter,
+            "characters": len(text),
+          },
+        )
+
+      return "", {"status": "unsupported_source_type", "adapter": "none", "characters": 0}
+
+    def _extract_pdf_text(self, artifact_path: Path) -> tuple[str, str]:
+      try:
+        from pypdf import PdfReader  # type: ignore
+
+        reader = PdfReader(str(artifact_path))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        if text.strip():
+          return text, "pypdf"
+      except Exception:
+        pass
+
+      raw = artifact_path.read_bytes().decode("latin-1", errors="ignore")
+      strings = re.findall(r"\((?:\\.|[^\\)])*\)\s*Tj", raw)
+      decoded = [self._decode_pdf_literal_string(item.rsplit(")", 1)[0][1:]) for item in strings]
+      return "\n".join(item for item in decoded if item.strip()), "pdf_literal_text"
+
+    @staticmethod
+    def _decode_pdf_literal_string(value: str) -> str:
+      return (
+        value.replace(r"\(", "(")
+        .replace(r"\)", ")")
+        .replace(r"\\", "\\")
+        .replace(r"\n", "\n")
+        .replace(r"\r", "\r")
+        .replace(r"\t", "\t")
+      )
 
     def approve_run(self, run_id: str, approved_by: str) -> dict:
       run = self.update_status(run_id, "approved")

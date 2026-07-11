@@ -205,6 +205,7 @@ pub async fn execute_run(
     document_id: String,
     file_name: String,
     source_type: String,
+    artifact_ref: Option<String>,
     page_count: u32,
     has_schema: bool,
     state: State<'_, AppState>,
@@ -213,6 +214,7 @@ pub async fn execute_run(
         "document_id": document_id,
         "file_name": file_name,
         "source_type": source_type,
+        "artifact_ref": artifact_ref,
         "page_count": page_count,
         "has_schema": has_schema
     });

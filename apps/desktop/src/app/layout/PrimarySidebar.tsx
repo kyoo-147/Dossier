@@ -5,12 +5,13 @@ type IconName = "inbox" | "clock" | "check" | "folder" | "search" | "automation"
 
 const sidebarItems: Array<{ label: string; to: string; count?: number; icon: IconName }> = [
   { label: "Inbox", to: "/inbox", count: 12, icon: "inbox" },
-  { label: "Processing", to: "/quick-ocr", count: 3, icon: "clock" },
-  { label: "Reviewed", to: "/review", count: 24, icon: "check" },
-  { label: "All Documents", to: "/documents", icon: "folder" },
+  { label: "Quick OCR", to: "/quick-ocr", icon: "clock" },
+  { label: "Processing", to: "/workspace", count: 3, icon: "clock" },
+  { label: "Review", to: "/review", count: 24, icon: "check" },
+  { label: "Documents", to: "/documents", count: 243, icon: "folder" },
   { label: "RAG / Search", to: "/inbox", icon: "search" },
-  { label: "Automation", to: "/inbox", icon: "automation" },
-  { label: "Models & Adapters", to: "/models", icon: "settings" },
+  { label: "Automations", to: "/inbox", icon: "automation" },
+  { label: "Models", to: "/models", icon: "settings" },
   { label: "Settings", to: "/settings", icon: "settings" }
 ];
 
