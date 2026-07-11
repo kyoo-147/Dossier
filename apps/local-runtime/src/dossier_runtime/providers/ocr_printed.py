@@ -2,15 +2,13 @@ from __future__ import annotations
 
 
 def ocr_printed_provider(payload: dict) -> dict:
-    file_name = payload.get("file_name", "document.pdf").lower()
-    text = (
-        "Invoice Number 000789 Total Amount 7590000"
-        if "invoice" in file_name or "hoa" in file_name
-        else "Scanned text content"
-    )
+    text = str(payload.get("text") or payload.get("content") or "")
+    if not text:
+        text = "Scanned text content"
+
     return {
         "text": text,
-        "lines": text.split(" Total "),
+        "lines": [line.strip() for line in text.splitlines() if line.strip()] or [text],
         "tokens": text.split(),
         "alternatives": [],
         "confidence": 0.93,

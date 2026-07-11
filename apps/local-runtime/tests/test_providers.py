@@ -10,7 +10,7 @@ def test_probe_provider_recommends_schema_workflow_when_schema_present() -> None
 
 
 def test_ocr_provider_extracts_invoice_text() -> None:
-    result = ocr_printed_provider({"file_name": "invoice_01.pdf"})
+    result = ocr_printed_provider({"text": "Invoice Number 000789\nTotal Amount 7590000"})
     assert result["confidence"] > 0.9
     assert "Invoice Number" in result["text"]
 
@@ -21,5 +21,22 @@ def test_layout_provider_creates_regions() -> None:
 
 
 def test_table_parser_returns_rows_for_invoice() -> None:
-    result = table_parser_provider({"file_name": "invoice_01.pdf"})
+    result = table_parser_provider(
+        {
+            "text": (
+                "Item, Qty, Amount\n"
+                "May in Canon LBP 2900, 2, 5000000\n"
+                "Muc in Canon 303, 4, 1200000\n"
+                "Giay in A4 Double A, 10, 700000"
+            )
+        }
+    )
     assert len(result["rows"]) == 3
+
+
+def test_providers_do_not_infer_invoice_from_file_name_only() -> None:
+    ocr = ocr_printed_provider({"file_name": "invoice_01.pdf"})
+    table = table_parser_provider({"file_name": "invoice_01.pdf"})
+
+    assert "000789" not in ocr["text"]
+    assert table["rows"] == []

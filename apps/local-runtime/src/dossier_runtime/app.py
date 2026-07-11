@@ -22,6 +22,8 @@ class ExecuteRunRequest(BaseModel):
     source_type: str = "pdf"
     page_count: int = 1
     has_schema: bool = False
+    text: str | None = None
+    content: str | None = None
 
 
 class FieldEditRequest(BaseModel):

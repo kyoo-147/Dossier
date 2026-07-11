@@ -4,8 +4,8 @@ from dossier_runtime.validation.engine import validate_fields
 
 def test_validation_detects_total_mismatch() -> None:
     fields = extract_fields(
-        {"file_name": "invoice_01.pdf", "has_schema": True},
-        {"text": "Invoice Number 000789 Total Amount 7590000", "confidence": 0.93},
+        {"file_name": "renamed_upload.pdf", "has_schema": True},
+        {"text": "Invoice Number 000789\nInvoice Date 05/05/2024\nTotal Amount 7590000", "confidence": 0.93},
         {"rows": [{"amount": 1000}, {"amount": 2000}]},
     )
 
@@ -20,8 +20,8 @@ def test_validation_detects_total_mismatch() -> None:
 
 def test_validation_marks_low_confidence_field() -> None:
     fields = extract_fields(
-        {"file_name": "invoice_01.pdf", "has_schema": True},
-        {"text": "Invoice Number 000789 Total Amount 7590000", "confidence": 0.93},
+        {"file_name": "renamed_upload.pdf", "has_schema": True},
+        {"text": "Invoice Number 000789\nInvoice Date 05/05/2024\nTotal Amount 7590000", "confidence": 0.93},
         {"rows": [{"amount": 5000000}, {"amount": 1200000}, {"amount": 700000}]},
     )
 

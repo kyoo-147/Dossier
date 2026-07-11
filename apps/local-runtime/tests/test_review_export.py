@@ -3,19 +3,30 @@ from pathlib import Path
 from dossier_runtime.runner import RuntimeRunner
 
 
+def invoice_payload(document_id: str) -> dict:
+    return {
+        "document_id": document_id,
+        "file_name": "renamed_upload.pdf",
+        "source_type": "pdf",
+        "page_count": 1,
+        "has_schema": True,
+        "text": (
+            "Invoice Number 000789\n"
+            "Invoice Date 05/05/2024\n"
+            "Total Amount 7590000\n"
+            "May in Canon LBP 2900, 2, 1000\n"
+            "Muc in Canon 303, 4, 2000"
+        ),
+    }
+
+
 def test_schema_workflow_generates_review_and_exports(tmp_path: Path) -> None:
     runner = RuntimeRunner(tmp_path)
     run = runner.create_run("doc_1", "schema_workflow", "schema_workflow", "0.1.0")
 
     result = runner.execute_run(
         run.run_id,
-        {
-            "document_id": "doc_1",
-            "file_name": "invoice_01.pdf",
-            "source_type": "pdf",
-            "page_count": 1,
-            "has_schema": True,
-        },
+        invoice_payload("doc_1"),
     )
 
     assert result["run"]["status"] == "needs_review"
@@ -44,13 +55,7 @@ def test_reject_run_records_audit(tmp_path: Path) -> None:
 
     runner.execute_run(
         run.run_id,
-        {
-            "document_id": "doc_2",
-            "file_name": "invoice_02.pdf",
-            "source_type": "pdf",
-            "page_count": 1,
-            "has_schema": True,
-        },
+        invoice_payload("doc_2"),
     )
 
     rejected = runner.reject_run(run.run_id, "qa-user", "mismatch unresolved")

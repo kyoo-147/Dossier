@@ -32,6 +32,7 @@ def test_runtime_api_health_and_run_lifecycle(tmp_path: Path) -> None:
             "source_type": "pdf",
             "page_count": 1,
             "has_schema": True,
+            "text": "Invoice Number 000789\nInvoice Date 05/05/2024\nTotal Amount 7590000\nMay in Canon LBP 2900, 2, 1000\nMuc in Canon 303, 4, 2000",
         },
     )
     assert executed.status_code == 200
