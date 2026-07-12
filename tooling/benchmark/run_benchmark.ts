@@ -1,7 +1,8 @@
 import { sampleFixtures, type SampleFixture } from "@dossier/sample-data";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { renderBenchmarkReport } from "./report.js";
 
 export interface BenchmarkObservation {
   fixtureId: string;
@@ -31,6 +32,11 @@ export interface BenchmarkMetrics {
 export interface BenchmarkReport {
   observations: BenchmarkObservation[];
   metrics: BenchmarkMetrics;
+}
+
+export interface BenchmarkArtifactPaths {
+  jsonPath: string;
+  markdownPath: string;
 }
 
 function normalizeLabel(label: string): string {
@@ -244,7 +250,32 @@ export function runBenchmark(fixtures: SampleFixture[] = sampleFixtures): Benchm
   };
 }
 
+export function writeBenchmarkArtifacts(report: BenchmarkReport, outDir: string): BenchmarkArtifactPaths {
+  mkdirSync(outDir, { recursive: true });
+  const jsonPath = resolve(outDir, "benchmark_report.json");
+  const markdownPath = resolve(outDir, "benchmark_report.md");
+  writeFileSync(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf-8");
+  writeFileSync(markdownPath, `${renderBenchmarkReport(report)}\n`, "utf-8");
+  return { jsonPath, markdownPath };
+}
+
+function cliOutDir(args: string[]): string {
+  const explicitIndex = args.findIndex((arg) => arg === "--out-dir");
+  const explicitValue = explicitIndex >= 0 ? args[explicitIndex + 1] : undefined;
+  if (explicitValue) {
+    return resolve(process.cwd(), explicitValue);
+  }
+
+  const inline = args.find((arg) => arg.startsWith("--out-dir="));
+  if (inline) {
+    return resolve(process.cwd(), inline.slice("--out-dir=".length));
+  }
+
+  return resolve(process.cwd(), "..", "..", "artifacts", "release-evidence", "benchmark");
+}
+
 if (process.argv[1]?.endsWith("run_benchmark.js")) {
   const report = runBenchmark();
+  writeBenchmarkArtifacts(report, cliOutDir(process.argv.slice(2)));
   console.log(JSON.stringify(report, null, 2));
 }

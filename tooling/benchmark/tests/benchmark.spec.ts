@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { renderBenchmarkReport } from "../report.js";
-import { observeFixture, observeFixtureFromRuntime, runBenchmark } from "../run_benchmark.js";
+import { observeFixture, observeFixtureFromRuntime, runBenchmark, writeBenchmarkArtifacts } from "../run_benchmark.js";
 
 describe("benchmark harness", () => {
   it("scores the bundled fixtures", () => {
@@ -110,5 +113,19 @@ describe("benchmark harness", () => {
 
     expect(text).toContain("Field-level accuracy");
     expect(text).toContain("Straight-through processing rate");
+  });
+
+  it("writes release evidence artifacts for benchmark runs", () => {
+    const report = runBenchmark();
+    const outDir = mkdtempSync(join(tmpdir(), "dossier-benchmark-"));
+    const paths = writeBenchmarkArtifacts(report, outDir);
+
+    expect(existsSync(paths.jsonPath)).toBe(true);
+    expect(existsSync(paths.markdownPath)).toBe(true);
+    expect(readFileSync(paths.markdownPath, "utf-8")).toContain("Dossier benchmark");
+    expect(JSON.parse(readFileSync(paths.jsonPath, "utf-8"))).toMatchObject({
+      metrics: expect.any(Object),
+      observations: expect.any(Array)
+    });
   });
 });
