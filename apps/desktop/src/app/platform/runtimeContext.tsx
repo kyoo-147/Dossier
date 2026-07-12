@@ -43,14 +43,14 @@ interface RuntimeContextValue {
   processDocument(document: DesktopDocumentRecord): Promise<void>;
   refreshReview(fixture: SampleFixture): Promise<void>;
   editField(fixture: SampleFixture, fieldId: string, newValue: string, note?: string): Promise<void>;
-  approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
+  approveAndExport(fixture: SampleFixture, exportTarget?: "json" | "markdown" | "webhook" | "erp" | "his" | "los"): Promise<void>;
   rejectRun(fixture: SampleFixture, note?: string): Promise<void>;
   cancelSessionRun(sessionKey: string, reason?: string): Promise<void>;
   saveSessionExport(sessionKey: string): Promise<void>;
   revealSessionExport(sessionKey: string): Promise<void>;
   refreshSessionReview(sessionKey: string): Promise<void>;
   editSessionField(sessionKey: string, fieldId: string, newValue: string, note?: string): Promise<void>;
-  approveSessionAndExport(sessionKey: string, exportTarget?: "json" | "markdown" | "connector"): Promise<void>;
+  approveSessionAndExport(sessionKey: string, exportTarget?: "json" | "markdown" | "webhook" | "erp" | "his" | "los"): Promise<void>;
   rejectSessionRun(sessionKey: string, note?: string): Promise<void>;
 }
 
@@ -231,7 +231,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   );
 
   const approveSessionAndExport = useCallback(
-    async (sessionKey: string, exportTarget: "json" | "markdown" | "connector" = "json") => {
+    async (sessionKey: string, exportTarget: "json" | "markdown" | "webhook" | "erp" | "his" | "los" = "json") => {
       const session = sessions[sessionKey];
       const runId = session?.result?.run.run_id;
       const baseResult = session?.result;
@@ -329,7 +329,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   );
 
   const approveAndExport = useCallback(
-    async (fixture: SampleFixture, exportTarget: "json" | "markdown" | "connector" = "json") =>
+    async (fixture: SampleFixture, exportTarget: "json" | "markdown" | "webhook" | "erp" | "his" | "los" = "json") =>
       approveSessionAndExport(fixture.fixtureId, exportTarget),
     [approveSessionAndExport]
   );

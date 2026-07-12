@@ -149,7 +149,7 @@ export interface DesktopGateway {
   applyFieldEdit(runId: string, fieldId: string, newValue: string, note?: string): Promise<RuntimeExecutionResult>;
   approveRun(runId: string): Promise<RuntimeExecutionResult>;
   rejectRun(runId: string, note?: string): Promise<RuntimeExecutionResult>;
-  exportRun(runId: string, exportTarget: "json" | "markdown" | "connector"): Promise<{ artifact_ref: string; run: RuntimeRunRecord }>;
+  exportRun(runId: string, exportTarget: "json" | "markdown" | "webhook" | "erp" | "his" | "los"): Promise<{ artifact_ref: string; run: RuntimeRunRecord }>;
   pickSaveExportPath(suggestedName: string): Promise<string | null>;
   saveArtifactToPath(artifactRef: string, destinationPath: string): Promise<{ saved_path: string }>;
   revealPathInFolder(path: string): Promise<void>;
@@ -480,7 +480,7 @@ function createBrowserMockGateway(): DesktopGateway {
       }
       result.run.status = "completed";
       return {
-        artifact_ref: `artifact://mock/${runId}.${exportTarget === "connector" ? "txt" : exportTarget}`,
+        artifact_ref: `artifact://mock/${runId}.${exportTarget === "markdown" ? "md" : "json"}`,
         run: result.run
       };
     },

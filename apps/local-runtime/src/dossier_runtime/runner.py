@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import re
+import json
 import uuid
 import hashlib
 from pathlib import Path
 
 from .artifacts import ArtifactStore
 from .extraction import extract_fields
-from .exporters import export_connector_stub, export_json_payload, export_markdown_payload
+from .exporters import CONNECTOR_TARGETS, DISPATCHERS, build_audit_record, export_connector_stub, export_json_payload, export_markdown_payload
 from .job_store import JobStore
 from .models import RunRecord, utc_now_iso
 from .provider_registry import ProviderDefinition, ProviderRegistry
@@ -392,6 +393,22 @@ class RuntimeRunner:
         artifact_ref = self.create_artifact(export_json_payload(payload), suffix=".json")
       elif export_target == "markdown":
         artifact_ref = self.create_artifact(export_markdown_payload(payload), suffix=".md")
+      elif export_target in CONNECTOR_TARGETS:
+        dispatcher = DISPATCHERS[export_target]
+        connector_result = dispatcher(payload)
+        
+        audit_record = build_audit_record(run_id, export_target)
+        self._approval_audit.setdefault(run_id, []).append(
+            ApprovalAuditRecord(**audit_record)
+        )
+        self._emit(
+            f"connector.{export_target}.drafted",
+            run.trace_id, run.run_id, run.document_id,
+            {"target": export_target, "status": "draft"},
+        )
+        artifact_ref = self.create_artifact(
+            json.dumps(connector_result, indent=2).encode("utf-8"), suffix=".json"
+        )
       else:
         connector_payload = export_connector_stub(payload)
         artifact_ref = self.create_artifact(str(connector_payload).encode("utf-8"), suffix=".txt")

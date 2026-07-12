@@ -17,7 +17,11 @@ export const EventTypeSchema = z.enum([
   "review.field_edited",
   "approval.rejected",
   "approval.completed",
-  "export.delivered"
+  "export.delivered",
+  "connector.webhook.drafted",
+  "connector.erp.drafted",
+  "connector.his.drafted",
+  "connector.los.drafted"
 ]);
 
 export const EventEnvelopeSchema = z.object({
