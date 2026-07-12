@@ -12,9 +12,12 @@ describe("benchmark harness", () => {
 
     expect(report.observations.length).toBeGreaterThanOrEqual(3);
     expect(report.observations.every((observation) => observation.source === "runtime_artifact")).toBe(true);
+    expect(report.observations.find((observation) => observation.fixtureId === "healthcare_handwriting_prescription")?.textExtractionStatus).toBe("extracted");
     expect(report.metrics.fieldLevelAccuracy).toBeGreaterThan(0);
     expect(report.metrics.fieldLevelAccuracy).toBeLessThanOrEqual(1);
     expect(report.metrics.requiredFieldCompletion).toBeGreaterThan(0);
+    expect(report.metrics.evidenceCoverage).toBe(1);
+    expect(report.metrics.exportSuccessRate).toBe(1);
   });
 
   it("does not award matches when observed fields are absent", () => {
@@ -113,6 +116,8 @@ describe("benchmark harness", () => {
 
     expect(text).toContain("Field-level accuracy");
     expect(text).toContain("Straight-through processing rate");
+    expect(text).toContain("Evidence coverage");
+    expect(text).toContain("Export success rate");
   });
 
   it("writes release evidence artifacts for benchmark runs", () => {

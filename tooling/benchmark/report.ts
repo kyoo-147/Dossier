@@ -10,6 +10,8 @@ export function renderBenchmarkReport(report: BenchmarkReport): string {
     "",
     `- Field-level accuracy: ${pct(report.metrics.fieldLevelAccuracy)}`,
     `- Required-field completion: ${pct(report.metrics.requiredFieldCompletion)}`,
+    `- Evidence coverage: ${pct(report.metrics.evidenceCoverage)}`,
+    `- Export success rate: ${pct(report.metrics.exportSuccessRate)}`,
     `- Review rate: ${pct(report.metrics.reviewRate)}`,
     `- Straight-through processing rate: ${pct(report.metrics.straightThroughProcessingRate)}`,
     `- Average latency: ${report.metrics.averageLatencyMs.toFixed(0)} ms`,

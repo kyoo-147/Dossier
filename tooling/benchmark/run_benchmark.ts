@@ -24,6 +24,8 @@ export interface BenchmarkObservation {
 export interface BenchmarkMetrics {
   fieldLevelAccuracy: number;
   requiredFieldCompletion: number;
+  evidenceCoverage: number;
+  exportSuccessRate: number;
   reviewRate: number;
   straightThroughProcessingRate: number;
   averageLatencyMs: number;
@@ -226,10 +228,16 @@ export function scoreBenchmark(observations: BenchmarkObservation[]): BenchmarkM
   const reviewCount = observations.filter((item) => item.reviewTriggered).length;
   const stpCount = observations.length - reviewCount;
   const totalLatencyMs = observations.reduce((sum, item) => sum + item.latencyMs, 0);
+  const evidenceCoveredCount = observations.filter(
+    (item) => Boolean(item.artifactSha256) && item.textExtractionStatus !== "unsupported_source_type"
+  ).length;
+  const exportSuccessCount = observations.filter((item) => item.exported).length;
 
   return {
     fieldLevelAccuracy: totalFields === 0 ? 0 : matchedFields / totalFields,
     requiredFieldCompletion: totalRequiredFields === 0 ? 0 : (totalRequiredFields - missingRequiredFields) / totalRequiredFields,
+    evidenceCoverage: observations.length === 0 ? 0 : evidenceCoveredCount / observations.length,
+    exportSuccessRate: observations.length === 0 ? 0 : exportSuccessCount / observations.length,
     reviewRate: observations.length === 0 ? 0 : reviewCount / observations.length,
     straightThroughProcessingRate: observations.length === 0 ? 0 : stpCount / observations.length,
     averageLatencyMs: observations.length === 0 ? 0 : totalLatencyMs / observations.length

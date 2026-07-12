@@ -12,6 +12,7 @@ from .job_store import JobStore
 from .models import RunRecord, utc_now_iso
 from .provider_registry import ProviderDefinition, ProviderRegistry
 from .providers import layout_provider, ocr_printed_provider, probe_provider, table_parser_provider
+from .providers.ocr_image import ocr_image_artifact_provider
 from .repair import run_repair_pass
 from .review import ApprovalAuditRecord, ReviewTaskRecord, RevisionRecord
 from .validation import validate_fields
@@ -184,6 +185,20 @@ class RuntimeRunner:
             "status": "extracted" if text.strip() else "unsupported_no_text_layer",
             "adapter": adapter,
             "characters": len(text),
+          },
+        )
+
+      if suffix in {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}:
+        ocr_result = ocr_image_artifact_provider(artifact_path)
+        return (
+          ocr_result["text"],
+          {
+            "status": ocr_result["status"],
+            "adapter": ocr_result["adapter"],
+            "provider_id": ocr_result["provider_id"],
+            "provider_version": ocr_result["provider_version"],
+            "confidence": ocr_result["confidence"],
+            "characters": ocr_result["characters"],
           },
         )
 

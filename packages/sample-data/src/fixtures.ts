@@ -1,6 +1,6 @@
 import type { SampleFixture } from "./types.js";
 
-export const sampleFixtures: SampleFixture[] = [
+const coreSampleFixtures: SampleFixture[] = [
   {
     fixtureId: "finance_clean_invoice",
     bucket: "golden",
@@ -172,6 +172,125 @@ export const sampleFixtures: SampleFixture[] = [
     }
   }
 ];
+
+function financeFixture(index: number, bucket: SampleFixture["bucket"], mode: SampleFixture["mode"]): SampleFixture {
+  const invoiceNumber = `90${index.toString().padStart(2, "0")}`;
+  const amount = `${7000000 + index * 125000}`;
+  const sellerTaxCode = `01012345${index.toString().padStart(2, "0")}`;
+  return {
+    fixtureId: `finance_pilot_${index.toString().padStart(2, "0")}`,
+    bucket,
+    industry: "finance",
+    mode,
+    fileName: `finance_pilot_${index.toString().padStart(2, "0")}.${index % 4 === 0 ? "png" : "pdf"}`,
+    sourceText: `Invoice Number ${invoiceNumber}\nInvoice Date 1${index % 9}/06/2026\nSeller Tax Code ${sellerTaxCode}\nTotal Amount ${amount}\nService fee, 1, ${amount}`,
+    expectedFields: [
+      { schemaKey: "invoice.number", value: invoiceNumber, required: true },
+      { schemaKey: "invoice.total_amount", value: amount, required: true },
+      { schemaKey: "seller.tax_code", value: sellerTaxCode, required: true }
+    ],
+    expectedReview: mode === "schema_workflow",
+    expectedLatencyMs: 2800 + index * 80,
+    workspace: {
+      documentTitle: `FIN-${invoiceNumber}.pdf`,
+      subtitle: "Finance pilot document",
+      fields: [
+        { label: "Invoice Number", value: invoiceNumber, status: "approved" },
+        { label: "Total Amount", value: amount, status: "approved" },
+        { label: "Seller Tax Code", value: sellerTaxCode, status: "approved" }
+      ],
+      riskScore: mode === "schema_workflow" ? "31%" : "9%",
+      riskSummary: mode === "schema_workflow" ? ["Approval required", "Evidence ready"] : ["Ready for export"],
+      warnings: mode === "schema_workflow" ? ["Approval required"] : [],
+      logs: ["Probe -> finance pack", "Extraction -> fields mapped", "Export -> draft ready"]
+    }
+  };
+}
+
+function healthcareFixture(index: number, bucket: SampleFixture["bucket"], mode: SampleFixture["mode"]): SampleFixture {
+  const patientId = `BN-${(100 + index).toString()}`;
+  const patientName = `Nguyen Van ${String.fromCharCode(65 + index)}`;
+  return {
+    fixtureId: `healthcare_pilot_${index.toString().padStart(2, "0")}`,
+    bucket,
+    industry: "healthcare",
+    mode,
+    fileName: `healthcare_pilot_${index.toString().padStart(2, "0")}.${index % 3 === 0 ? "jpg" : "pdf"}`,
+    sourceText: `Patient Name ${patientName}\nPatient ID ${patientId}\nEncounter Date 1${index % 9}/07/2026\nApproval required before HIS update`,
+    expectedFields: [
+      { schemaKey: "patient.name", value: patientName, required: true },
+      { schemaKey: "patient.id", value: patientId, required: true }
+    ],
+    expectedReview: true,
+    expectedLatencyMs: 3000 + index * 70,
+    workspace: {
+      documentTitle: `HC-${patientId}.pdf`,
+      subtitle: "Healthcare pilot document",
+      fields: [
+        { label: "Patient Name", value: patientName, status: "approved" },
+        { label: "Patient ID", value: patientId, status: "approved" }
+      ],
+      riskScore: "14%",
+      riskSummary: ["Required fields complete", "Approval required before system handoff"],
+      warnings: ["Approval required before HIS update"],
+      logs: ["Probe -> healthcare pack", "Validation -> approval gate", "Review -> queued"]
+    }
+  };
+}
+
+function enterpriseFixture(index: number, bucket: SampleFixture["bucket"], mode: SampleFixture["mode"]): SampleFixture {
+  const owner = index % 2 === 0 ? "Operations" : "Finance";
+  const requestor = index % 2 === 0 ? "Le Thi B" : "Tran Minh C";
+  return {
+    fixtureId: `enterprise_pilot_${index.toString().padStart(2, "0")}`,
+    bucket,
+    industry: "enterprise",
+    mode,
+    fileName: `enterprise_pilot_${index.toString().padStart(2, "0")}.${index % 5 === 0 ? "png" : "pdf"}`,
+    sourceText:
+      mode === "quick_ocr"
+        ? "Internal Request\nDepartment Operations\nFast capture complete"
+        : `Document Owner ${owner}\nRequestor ${requestor}\n${bucket === "noisy" ? "Low confidence requestor field\n" : ""}Review required before workflow handoff`,
+    expectedFields:
+      mode === "quick_ocr"
+        ? [{ schemaKey: "document.title", value: "Internal Request", required: true }]
+        : [
+            { schemaKey: "document.owner", value: owner, required: true },
+            { schemaKey: "approval.requestor", value: requestor, required: true }
+          ],
+    expectedReview: mode === "schema_workflow",
+    expectedLatencyMs: 2400 + index * 60,
+    workspace: {
+      documentTitle: `ENT-${index.toString().padStart(3, "0")}.pdf`,
+      subtitle: "Enterprise operations document",
+      fields:
+        mode === "quick_ocr"
+          ? [{ label: "Document Title", value: "Internal Request", status: "approved" }]
+          : [
+              { label: "Document Owner", value: owner, status: "approved" },
+              { label: "Requestor", value: requestor, status: bucket === "noisy" ? "warning" : "approved" }
+            ],
+      riskScore: bucket === "noisy" ? "24%" : "7%",
+      riskSummary: bucket === "noisy" ? ["Low confidence field", "Review required"] : ["Ready for workflow handoff"],
+      warnings: bucket === "noisy" ? ["Low confidence requestor field"] : [],
+      logs: ["Probe -> enterprise pack", "Extraction -> workflow metadata", "Export -> connector draft ready"]
+    }
+  };
+}
+
+const generatedPilotFixtures: SampleFixture[] = [
+  ...Array.from({ length: 8 }, (_, index) =>
+    financeFixture(index + 1, index % 3 === 0 ? "risk" : index % 3 === 1 ? "noisy" : "clean", index % 2 === 0 ? "schema_workflow" : "generic_parse")
+  ),
+  ...Array.from({ length: 8 }, (_, index) =>
+    healthcareFixture(index + 1, index % 3 === 0 ? "handwriting" : index % 3 === 1 ? "risk" : "clean", "schema_workflow")
+  ),
+  ...Array.from({ length: 8 }, (_, index) =>
+    enterpriseFixture(index + 1, index % 3 === 0 ? "noisy" : index % 3 === 1 ? "risk" : "clean", index % 2 === 0 ? "schema_workflow" : "quick_ocr")
+  )
+];
+
+export const sampleFixtures: SampleFixture[] = [...coreSampleFixtures, ...generatedPilotFixtures];
 
 export const sampleFixtureById = Object.fromEntries(sampleFixtures.map((fixture) => [fixture.fixtureId, fixture])) as Record<
   string,

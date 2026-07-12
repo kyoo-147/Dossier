@@ -88,9 +88,9 @@ trailer << /Root 1 0 R >>
     assert result["source"]["artifact_sha256"]
 
 
-def test_runner_reports_unsupported_image_without_filename_extraction(tmp_path: Path) -> None:
+def test_runner_extracts_image_text_from_artifact_without_filename_fallback(tmp_path: Path) -> None:
     runner = RuntimeRunner(tmp_path)
-    artifact_ref = runner.create_artifact(b"\x89PNG\r\n", suffix=".png")
+    artifact_ref = runner.create_artifact(b"\x89PNG\r\nParacetamol 500mg\nTake one tablet after meal", suffix=".png")
     run = runner.create_run("doc_image", "generic_parse", "generic_parse", "0.1.0")
 
     result = runner.execute_run(
@@ -105,7 +105,32 @@ def test_runner_reports_unsupported_image_without_filename_extraction(tmp_path: 
         },
     )
 
-    assert result["source"]["text_extraction"]["status"] == "unsupported_source_type"
+    assert result["source"]["text_extraction"]["status"] == "extracted"
+    assert result["source"]["text_extraction"]["adapter"] == "ocr_image.local"
+    assert result["source"]["text_extraction"]["provider_id"] == "ocr_image.local"
+    assert {field["schema_key"]: field["normalized_value"] for field in result["fields"]}[
+        "document.text"
+    ] == "Paracetamol"
+
+
+def test_runner_does_not_extract_image_fields_from_filename_when_artifact_has_no_text(tmp_path: Path) -> None:
+    runner = RuntimeRunner(tmp_path)
+    artifact_ref = runner.create_artifact(b"\x89PNG\r\n\x00\x01\x02", suffix=".png")
+    run = runner.create_run("doc_image_empty", "generic_parse", "generic_parse", "0.1.0")
+
+    result = runner.execute_run(
+        run.run_id,
+        {
+            "document_id": "doc_image_empty",
+            "file_name": "invoice_000789.png",
+            "source_type": "image",
+            "artifact_ref": artifact_ref,
+            "page_count": 1,
+            "has_schema": False,
+        },
+    )
+
+    assert result["source"]["text_extraction"]["status"] == "ocr_no_text"
     assert result["fields"] == []
 
 
