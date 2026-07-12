@@ -135,6 +135,42 @@ describe("pilot flows", () => {
     await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
   });
 
+  it("supports keyboard-first approval from the review workspace", async () => {
+    render(
+      <RuntimeProvider>
+        <MemoryRouter initialEntries={["/inbox"]}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
+              <Route path="/review" element={<ReviewPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText("Runtime ready (desktop simulator)")).toBeInTheDocument());
+
+    fireEvent.change(screen.getAllByRole("textbox")[0]!, {
+      target: { value: "D:\\docs\\keyboard-review.pdf" }
+    });
+    fireEvent.click(screen.getByLabelText("Schema"));
+    fireEvent.click(screen.getByText("Add document"));
+    fireEvent.click(await screen.findByText("keyboard-review.pdf"));
+
+    await waitFor(() => expect(screen.getByText("Run local pipeline")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Run local pipeline"));
+    await waitFor(() => expect(screen.getByText(/Run mock_local_/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Review"));
+    fireEvent.click(await screen.findByText("keyboard-review.pdf"));
+
+    await waitFor(() => expect(screen.getByText("Approve and export JSON")).toBeEnabled());
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(screen.getByText(/artifact:\/\/mock\/mock_local_.*\.json/)).toBeInTheDocument());
+  });
+
   it("shows registered local documents in the All Documents browser", async () => {
     render(
       <RuntimeProvider>

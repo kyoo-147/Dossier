@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { createActionRegistry, formatShortcut, type DossierAction } from "../../app/actions/actionRegistry.js";
 import { WorkstationShell } from "../../app/layout/WorkstationShell.js";
 import { DocumentViewerShell } from "../../app/layout/DocumentViewerShell.js";
 import { DocumentInspectorShell } from "../../app/layout/DocumentInspectorShell.js";
@@ -32,6 +33,7 @@ export function ReviewPage() {
   const session = sessionKey ? sessions[sessionKey] : undefined;
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
   const warnings = session?.result?.warnings.map((warning) => warning.message) ?? fixture?.workspace.warnings ?? [];
   const reviewTasks = session?.reviewTasks ?? session?.result?.review_tasks ?? [];
   const revisions = session?.revisions ?? session?.result?.revisions ?? [];
@@ -49,6 +51,47 @@ export function ReviewPage() {
     { id: "approval-signature", label: "Approval signature", x: 0.52, y: 0.76, w: 0.42, h: 0.15, tone: "success" }
   ];
 
+  const applyFieldCorrection = () => {
+    if (!editableField || !sessionKey) return;
+    const nextValue = editValue || editableField.normalized_value;
+    if (!nextValue) return;
+    if (fixture) void editField(fixture, editableField.field_id, nextValue, "review action registry correction");
+    else void editSessionField(sessionKey, editableField.field_id, nextValue, "review action registry correction");
+    setEditValue("");
+  };
+
+  const approveReviewExport = () => {
+    if (!sessionKey) return;
+    if (fixture) void approveAndExport(fixture);
+    else void approveSessionAndExport(sessionKey);
+  };
+
+  const rejectReview = () => {
+    if (!sessionKey) return;
+    if (fixture) void rejectRun(fixture, "Rejected from review action registry");
+    else void rejectSessionRun(sessionKey, "Rejected from review action registry");
+  };
+
+  const reviewActions = useMemo(() => {
+    const actions: DossierAction[] = [
+      { id: "review.next_warning", label: "Next warning", shortcut: "J", run: () => setSelectedTaskIndex((current) => Math.min(current + 1, Math.max(reviewTasks.length - 1, 0))) },
+      { id: "review.previous_warning", label: "Previous warning", shortcut: "K", run: () => setSelectedTaskIndex((current) => Math.max(current - 1, 0)) },
+      { id: "review.edit_candidate", label: "Edit candidate", shortcut: "E", disabled: () => !editableField, run: () => editInputRef.current?.focus() },
+      { id: "review.accept_value", label: "Accept value", shortcut: "A", auditLabel: "field_accepted", disabled: () => !session?.result || !editableField, run: applyFieldCorrection },
+      { id: "review.reject_run", label: "Reject run", shortcut: "Delete", confirm: "Reject this run?", auditLabel: "run_rejected", disabled: () => !session?.result, run: rejectReview },
+      {
+        id: "review.approve_export",
+        label: "Approve and export JSON",
+        shortcut: "Ctrl+Enter",
+        confirm: "Approve this run and export JSON?",
+        auditLabel: "run_approved_exported",
+        disabled: () => !session?.result || session.result.run.status === "canceled" || session.result.run.status === "failed",
+        run: approveReviewExport
+      }
+    ];
+    return createActionRegistry(actions);
+  }, [editableField, editValue, fixture, reviewTasks.length, session?.result, sessionKey]);
+
   useEffect(() => {
     if (fixture && session?.result?.run.run_id) void refreshReview(fixture);
     else if (sessionKey && session?.result?.run.run_id) void refreshSessionReview(sessionKey);
@@ -56,12 +99,17 @@ export function ReviewPage() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "j") setSelectedTaskIndex((current) => Math.min(current + 1, Math.max(reviewTasks.length - 1, 0)));
-      if (event.key === "k") setSelectedTaskIndex((current) => Math.max(current - 1, 0));
+      const target = event.target as HTMLElement | null;
+      const isTextInput = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+      if (isTextInput && !event.ctrlKey && !event.metaKey) return;
+      const action = reviewActions.findByKeyboardEvent(event);
+      if (!action) return;
+      event.preventDefault();
+      void reviewActions.execute(action.id);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [reviewTasks.length]);
+  }, [reviewActions]);
 
   return (
     <WorkstationShell
