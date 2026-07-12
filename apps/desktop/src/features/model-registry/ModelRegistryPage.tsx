@@ -13,7 +13,28 @@ const mockProviders: ProviderManifest[] = [
     input_contract: "dossier.vision.v1",
     output_contract: "dossier.text.v1",
     adapter: { source: "local_pack", requires_api_key: false, size_bytes: 125000000 },
+    install_state: "installed",
+    checksum: "sha256:local-image-ocr",
+    local_path: "runtime/providers/ocr_image",
+    license_ref: "Dossier pilot adapter",
     resource_profile: { cpu: 2, memory: "500MB" },
+    privacy_profile: { local_only: true },
+    health_status: "healthy"
+  },
+  {
+    provider_id: "structured-parser-docling-local",
+    provider_name: "Docling-compatible Local Parser",
+    provider_type: "structured_parser",
+    version: "0.1",
+    capabilities: ["structured_parse", "tables", "rag_chunks"],
+    input_contract: "dossier.text.v1",
+    output_contract: "dossier.document_graph.v1",
+    adapter: { source: "local_pack", requires_api_key: false, size_bytes: 64000000 },
+    install_state: "installed",
+    checksum: "sha256:structured-parser-docling-local",
+    local_path: "runtime/providers/structured_parser",
+    license_ref: "MIT-compatible adapter boundary",
+    resource_profile: { cpu: 2, memory: "1GB" },
     privacy_profile: { local_only: true },
     health_status: "healthy"
   },
@@ -26,6 +47,8 @@ const mockProviders: ProviderManifest[] = [
     input_contract: "dossier.text.v1",
     output_contract: "dossier.json.v1",
     adapter: { source: "cloud", requires_api_key: false },
+    install_state: "available",
+    license_ref: "Cloud provider terms",
     resource_profile: { network: true },
     privacy_profile: { local_only: false },
     health_status: "healthy"
@@ -39,6 +62,9 @@ const mockProviders: ProviderManifest[] = [
     input_contract: "dossier.chat.v1",
     output_contract: "dossier.chat.v1",
     adapter: { source: "ollama", requires_api_key: false, model_id: "llama3", size_bytes: 4700000000 },
+    install_state: "uninstalled",
+    checksum: "sha256:llama3-catalog-placeholder",
+    license_ref: "Meta Llama license",
     resource_profile: { gpu: "optional", memory: "8GB" },
     privacy_profile: { local_only: true },
     health_status: "uninstalled"
@@ -52,6 +78,8 @@ const mockProviders: ProviderManifest[] = [
     input_contract: "dossier.vision.v1",
     output_contract: "dossier.layout.v1",
     adapter: { source: "api", requires_api_key: true },
+    install_state: "uninstalled",
+    license_ref: "Azure service terms",
     resource_profile: { network: true },
     privacy_profile: { local_only: false },
     health_status: "uninstalled"
@@ -97,7 +125,7 @@ export function ModelRegistryPage() {
     try {
       setInstallingModels(prev => ({ ...prev, [provider_id]: true }));
       await invoke("install_provider", { providerId: provider_id });
-      setModels(prev => prev.map(m => m.provider_id === provider_id ? { ...m, health_status: "healthy" } : m));
+      setModels(prev => prev.map(m => m.provider_id === provider_id ? { ...m, health_status: "healthy", install_state: "installed" } : m));
     } catch (e) {
       alert("Failed to install provider");
     } finally {
@@ -159,7 +187,7 @@ export function ModelRegistryPage() {
               </span>
               <span>{model.provider_type}</span>
               <span>{model.adapter.source}</span>
-              <span>{model.health_status}</span>
+              <span>{model.install_state} / {model.health_status}</span>
               <span style={{ textAlign: "right" }}>
                 {model.adapter.requires_api_key && (
                   <button className="button" style={{ marginRight: 8 }} onClick={() => handleOpenApiKey(model.provider_id)}>

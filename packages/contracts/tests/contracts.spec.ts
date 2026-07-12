@@ -3,6 +3,7 @@ import {
   DocumentStatusSchema,
   EvidenceSchema,
   PipelineStepSchema,
+  ProviderManifestSchema,
   ReviewTaskSchema,
   RunStatusSchema
 } from "../src/index.js";
@@ -78,6 +79,28 @@ describe("contracts", () => {
       },
       on_failure: "needs_review",
       human_gate: false
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("supports enterprise pilot provider install metadata", () => {
+    const parsed = ProviderManifestSchema.safeParse({
+      provider_id: "structured_parser.docling_local",
+      provider_name: "Docling-compatible Local Parser",
+      provider_type: "structured_parser",
+      version: "0.1.0",
+      capabilities: ["structured_parse", "tables", "rag_chunks"],
+      input_contract: "dossier.text.v1",
+      output_contract: "dossier.document_graph.v1",
+      adapter: { source: "local_pack", requires_api_key: false },
+      install_state: "installed",
+      checksum: "sha256:abc123",
+      local_path: "models/docling-local",
+      license_ref: "MIT",
+      resource_profile: { cpu: 2, memory: "1GB" },
+      privacy_profile: { local_only: true },
+      health_status: "healthy"
     });
 
     expect(parsed.success).toBe(true);

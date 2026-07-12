@@ -6,6 +6,7 @@ export const ProviderTypeSchema = z.enum([
   "layout",
   "ocr_printed",
   "ocr_handwriting",
+  "structured_parser",
   "table_parser",
   "field_extractor",
   "validator",
@@ -24,6 +25,15 @@ export const AdapterConfigSchema = z.object({
 
 export type AdapterConfig = z.infer<typeof AdapterConfigSchema>;
 
+export const ProviderInstallStateSchema = z.enum([
+  "available",
+  "installed",
+  "installing",
+  "failed",
+  "uninstalled",
+  "canceled"
+]);
+
 export const ProviderManifestSchema = z.object({
   provider_id: z.string(),
   provider_name: z.string().optional(),
@@ -33,6 +43,10 @@ export const ProviderManifestSchema = z.object({
   input_contract: z.string(),
   output_contract: z.string(),
   adapter: AdapterConfigSchema,
+  install_state: ProviderInstallStateSchema.default("available"),
+  checksum: z.string().optional(),
+  local_path: z.string().optional(),
+  license_ref: z.string().optional(),
   resource_profile: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
   privacy_profile: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
   health_status: z.enum(["healthy", "degraded", "offline", "uninstalled", "installing"])
