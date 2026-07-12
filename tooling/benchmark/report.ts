@@ -19,7 +19,7 @@ export function renderBenchmarkReport(report: BenchmarkReport): string {
     "## Fixtures",
     ...report.observations.map(
       (item) =>
-        `- ${item.fixtureId}: ${item.matchedFields}/${item.totalFields} fields matched, source=${item.source}, extraction=${item.textExtractionStatus ?? "n/a"}, artifact=${item.artifactSha256 ?? "n/a"}, events=${item.eventCount ?? 0}, exported=${item.exported ?? false}, export=${item.exportArtifactRef ?? "n/a"}, review=${item.reviewTriggered}, latency=${item.latencyMs} ms`
+        `- ${item.fixtureId}: ${item.matchedFields}/${item.totalFields} fields matched, source=${item.source}, extraction=${item.textExtractionStatus ?? "n/a"}, parser=${item.structuredParseStatus ?? "n/a"}, artifact=${item.artifactSha256 ?? "n/a"}, events=${item.eventCount ?? 0}, exported=${item.exported ?? false}, export=${item.exportArtifactRef ?? "n/a"}, review=${item.reviewTriggered}, latency=${item.latencyMs} ms`
     )
   ].join("\n");
 }

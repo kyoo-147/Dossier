@@ -72,6 +72,7 @@ def run_fixture(runner: RuntimeRunner, fixture: dict) -> dict:
         "review_tasks": result["review_tasks"],
         "run": result["run"],
         "source": result.get("source", {}),
+        "structured_parse": result.get("structured_parse", {}),
         "events": runner.list_run_events(run.run_id)["events"],
         "exported": exported,
         "export_artifact_ref": export_ref,

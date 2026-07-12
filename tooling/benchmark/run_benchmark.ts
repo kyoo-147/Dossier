@@ -10,6 +10,8 @@ export interface BenchmarkObservation {
   artifactRef?: string;
   artifactSha256?: string;
   textExtractionStatus?: string;
+  structuredParseStatus?: string;
+  structuredParseAdapter?: string;
   eventCount?: number;
   exported?: boolean;
   exportArtifactRef?: string | null;
@@ -100,6 +102,10 @@ interface RuntimeProbeResult {
     artifact_ref?: string | null;
     artifact_sha256?: string | null;
     text_extraction?: { status?: string; adapter?: string; characters?: number };
+  };
+  structured_parse?: {
+    status?: string;
+    adapter?: string;
   };
   events?: unknown[];
   exported?: boolean;
@@ -208,6 +214,12 @@ export function observeFixtureFromRuntime(
   }
   if (result.source?.text_extraction?.status) {
     metadata.textExtractionStatus = result.source.text_extraction.status;
+  }
+  if (result.structured_parse?.status) {
+    metadata.structuredParseStatus = result.structured_parse.status;
+  }
+  if (result.structured_parse?.adapter) {
+    metadata.structuredParseAdapter = result.structured_parse.adapter;
   }
 
   return scoreFixture(

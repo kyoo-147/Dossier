@@ -11,7 +11,7 @@ from .exporters import export_connector_stub, export_json_payload, export_markdo
 from .job_store import JobStore
 from .models import RunRecord, utc_now_iso
 from .provider_registry import ProviderDefinition, ProviderRegistry
-from .providers import layout_provider, ocr_printed_provider, probe_provider, table_parser_provider
+from .providers import layout_provider, ocr_printed_provider, probe_provider, structured_parser_provider, table_parser_provider
 from .providers.ocr_image import ocr_image_artifact_provider
 from .repair import run_repair_pass
 from .review import ApprovalAuditRecord, ReviewTaskRecord, RevisionRecord
@@ -81,6 +81,7 @@ class RuntimeRunner:
       layout_result = self.provider_registry.get_by_type("layout").handler(prepared_payload)
       ocr_result = self.provider_registry.get_by_type("ocr_printed").handler(prepared_payload)
       table_result = self.provider_registry.get_by_type("table_parser").handler(prepared_payload)
+      structured_parse = self.provider_registry.get_by_type("structured_parser").handler(prepared_payload)
 
       fields = extract_fields(prepared_payload, ocr_result, table_result)
       warnings = validate_fields(prepared_payload, fields, table_result)
@@ -97,6 +98,7 @@ class RuntimeRunner:
         "layout": layout_result,
         "ocr": ocr_result,
         "table": table_result,
+        "structured_parse": structured_parse,
         "fields": fields,
         "warnings": final_warnings,
         "repair": repair_result,
@@ -547,5 +549,13 @@ class RuntimeRunner:
           provider_type="table_parser",
           version="0.1.0",
           handler=table_parser_provider,
+        )
+      )
+      self.provider_registry.register(
+        ProviderDefinition(
+          provider_id="structured_parser.docling_local",
+          provider_type="structured_parser",
+          version="0.1.0",
+          handler=structured_parser_provider,
         )
       )

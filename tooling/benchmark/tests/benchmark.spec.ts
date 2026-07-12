@@ -13,6 +13,7 @@ describe("benchmark harness", () => {
     expect(report.observations.length).toBeGreaterThanOrEqual(3);
     expect(report.observations.every((observation) => observation.source === "runtime_artifact")).toBe(true);
     expect(report.observations.find((observation) => observation.fixtureId === "healthcare_handwriting_prescription")?.textExtractionStatus).toBe("extracted");
+    expect(report.observations.every((observation) => observation.structuredParseStatus === "parsed")).toBe(true);
     expect(report.metrics.fieldLevelAccuracy).toBeGreaterThan(0);
     expect(report.metrics.fieldLevelAccuracy).toBeLessThanOrEqual(1);
     expect(report.metrics.requiredFieldCompletion).toBeGreaterThan(0);

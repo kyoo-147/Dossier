@@ -82,6 +82,9 @@ trailer << /Root 1 0 R >>
 
     assert result["source"]["text_extraction"]["status"] == "extracted"
     assert result["source"]["text_extraction"]["adapter"] in {"pypdf", "pdf_literal_text"}
+    assert result["structured_parse"]["status"] == "parsed"
+    assert result["structured_parse"]["adapter"] == "docling.local"
+    assert result["structured_parse"]["chunks"]
     assert {field["schema_key"]: field["normalized_value"] for field in result["fields"]}[
         "invoice.total_amount"
     ] == "7590000"

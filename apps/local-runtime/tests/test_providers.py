@@ -1,6 +1,7 @@
 from dossier_runtime.providers.layout import layout_provider
 from dossier_runtime.providers.ocr_printed import ocr_printed_provider
 from dossier_runtime.providers.probe import probe_provider
+from dossier_runtime.providers.structured_parser import structured_parser_provider
 from dossier_runtime.providers.table_parser import table_parser_provider
 
 
@@ -32,6 +33,21 @@ def test_table_parser_returns_rows_for_invoice() -> None:
         }
     )
     assert len(result["rows"]) == 3
+
+
+def test_structured_parser_returns_docling_compatible_document_shape() -> None:
+    result = structured_parser_provider(
+        {
+            "text": "Invoice Number 000789\nTotal Amount 7590000\nMay in Canon LBP 2900, 2, 7590000",
+            "page_count": 1,
+        }
+    )
+
+    assert result["status"] == "parsed"
+    assert result["adapter"] == "docling.local"
+    assert result["markdown"].startswith("# Parsed document")
+    assert result["chunks"][0]["page_id"] == "page_1"
+    assert result["tables"][0]["rows"][0]["amount"] == 7590000
 
 
 def test_providers_do_not_infer_invoice_from_file_name_only() -> None:
