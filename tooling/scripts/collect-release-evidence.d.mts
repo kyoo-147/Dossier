@@ -19,6 +19,15 @@ export interface ReleaseEvidenceManifest {
   };
   screenshots: EvidenceFileRecord[];
   installers: EvidenceFileRecord[];
+  salesPacket: {
+    productBrief: EvidenceFileRecord;
+    pitchDeck: EvidenceFileRecord;
+    securityBrief: EvidenceFileRecord;
+    pilotProposal: EvidenceFileRecord;
+    roiCalculator: EvidenceFileRecord;
+    demoChecklist: EvidenceFileRecord;
+    pilotReadiness: EvidenceFileRecord;
+  };
 }
 
 export interface ReleaseEvidenceResult {
@@ -31,6 +40,7 @@ export const evidenceRelativePaths: {
   benchmarkMarkdown: string;
   screenshots: string[];
   installers: string[];
+  salesPacket: Record<string, string>;
 };
 
 export function collectReleaseEvidence(options?: {

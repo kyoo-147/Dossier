@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeSalesPacket } from "./write-sales-packet.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = resolve(scriptDir, "..", "..");
@@ -19,7 +20,16 @@ export const evidenceRelativePaths = {
   installers: [
     "apps/desktop/src-tauri/target/release/bundle/msi/Dossier_0.1.0_x64_en-US.msi",
     "apps/desktop/src-tauri/target/release/bundle/nsis/Dossier_0.1.0_x64-setup.exe"
-  ]
+  ],
+  salesPacket: {
+    productBrief: "artifacts/release-evidence/sales/product_brief.md",
+    pitchDeck: "artifacts/release-evidence/sales/pitch_deck.md",
+    securityBrief: "artifacts/release-evidence/sales/security_deployment_brief.md",
+    pilotProposal: "artifacts/release-evidence/sales/pilot_proposal_template.md",
+    roiCalculator: "artifacts/release-evidence/sales/roi_calculator.md",
+    demoChecklist: "artifacts/release-evidence/sales/demo_checklist.md",
+    pilotReadiness: "artifacts/release-evidence/sales/pilot_readiness_report.md"
+  }
 };
 
 function fileRecord(repoRoot, relativePath) {
@@ -50,6 +60,7 @@ export function collectReleaseEvidence(options = {}) {
   const repoRoot = options.repoRoot ? resolve(options.repoRoot) : defaultRepoRoot;
   const outDir = options.outDir ? resolve(options.outDir) : resolve(repoRoot, "artifacts", "release-evidence");
   mkdirSync(outDir, { recursive: true });
+  writeSalesPacket({ outDir: resolve(outDir, "sales") });
 
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -72,7 +83,10 @@ export function collectReleaseEvidence(options = {}) {
       markdown: fileRecord(repoRoot, evidenceRelativePaths.benchmarkMarkdown)
     },
     screenshots: evidenceRelativePaths.screenshots.map((path) => fileRecord(repoRoot, path)),
-    installers: evidenceRelativePaths.installers.map((path) => fileRecord(repoRoot, path))
+    installers: evidenceRelativePaths.installers.map((path) => fileRecord(repoRoot, path)),
+    salesPacket: Object.fromEntries(
+      Object.entries(evidenceRelativePaths.salesPacket).map(([key, path]) => [key, fileRecord(repoRoot, path)])
+    )
   };
 
   const manifestPath = resolve(outDir, "release_manifest.json");

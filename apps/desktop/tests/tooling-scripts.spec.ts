@@ -18,6 +18,7 @@ describe("cross-platform tooling scripts", () => {
     expect(packageJson.scripts.runtime).toContain("node ./tooling/scripts/run-powershell.mjs");
     expect(packageJson.scripts.demo).toContain("node ./tooling/scripts/run-powershell.mjs");
     expect(packageJson.scripts.evidence).toContain("node ./tooling/scripts/collect-release-evidence.mjs");
+    expect(packageJson.scripts["sales:packet"]).toContain("node ./tooling/scripts/write-sales-packet.mjs");
     expect(packageJson.scripts["test:all"]).toContain("node ./tooling/scripts/run-powershell.mjs");
   });
 
@@ -53,5 +54,7 @@ describe("cross-platform tooling scripts", () => {
     expect(result.manifest.verificationCommands).toContain("pnpm --filter @dossier/benchmark bench");
     expect(result.manifest.screenshots).toHaveLength(4);
     expect(result.manifest.benchmark.markdown.path).toContain("benchmark_report.md");
+    expect(result.manifest.salesPacket.productBrief.path).toContain("product_brief.md");
+    expect(result.manifest.salesPacket.pilotReadiness.path).toContain("pilot_readiness_report.md");
   });
 });
