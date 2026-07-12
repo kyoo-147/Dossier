@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildPowerShellArgs, getPowerShellCandidates } from "../../../tooling/scripts/run-powershell.mjs";
+import { collectReleaseEvidence } from "../../../tooling/scripts/collect-release-evidence.mjs";
 
 describe("cross-platform tooling scripts", () => {
   it("routes root package scripts through the PowerShell runner", () => {
@@ -13,6 +17,7 @@ describe("cross-platform tooling scripts", () => {
     expect(packageJson.scripts["desktop:tauri"]).toContain("node ./tooling/scripts/run-powershell.mjs");
     expect(packageJson.scripts.runtime).toContain("node ./tooling/scripts/run-powershell.mjs");
     expect(packageJson.scripts.demo).toContain("node ./tooling/scripts/run-powershell.mjs");
+    expect(packageJson.scripts.evidence).toContain("node ./tooling/scripts/collect-release-evidence.mjs");
     expect(packageJson.scripts["test:all"]).toContain("node ./tooling/scripts/run-powershell.mjs");
   });
 
@@ -36,5 +41,17 @@ describe("cross-platform tooling scripts", () => {
       "tooling/scripts/dev.ps1",
       "-Tauri"
     ]);
+  });
+
+  it("collects release evidence into an ignored local artifact manifest", () => {
+    const repoRoot = resolve(import.meta.dirname, "../../..");
+    const outDir = mkdtempSync(join(tmpdir(), "dossier-release-evidence-"));
+    const result = collectReleaseEvidence({ repoRoot, outDir });
+
+    expect(result.manifestPath).toContain("release_manifest.json");
+    expect(result.manifest.git.head).toEqual(expect.any(String));
+    expect(result.manifest.verificationCommands).toContain("pnpm --filter @dossier/benchmark bench");
+    expect(result.manifest.screenshots).toHaveLength(4);
+    expect(result.manifest.benchmark.markdown.path).toContain("benchmark_report.md");
   });
 });

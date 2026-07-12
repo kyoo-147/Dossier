@@ -12,6 +12,7 @@
     "desktop:tauri": "node ./tooling/scripts/run-powershell.mjs ./tooling/scripts/dev.ps1 -Tauri",
     "runtime": "node ./tooling/scripts/run-powershell.mjs ./tooling/scripts/runtime.ps1",
     "demo": "node ./tooling/scripts/run-powershell.mjs ./tooling/scripts/run-demo.ps1",
+    "evidence": "node ./tooling/scripts/collect-release-evidence.mjs",
     "test": "pnpm -r --if-present test",
     "test:all": "node ./tooling/scripts/run-powershell.mjs ./tooling/scripts/test.ps1",
     "test:unit": "vitest run",
